@@ -96,9 +96,8 @@ export function TournamentBracket({ tournamentId }: TournamentBracketProps) {
 
   return (
     <div className="max-sm:overflow-x-auto">
-      <div className="rounded-xl border border-slate-700 bg-slate-900 dark:bg-gray-900 min-h-[420px] p-8 bracket-container">
+      <div className="rounded-xl border border-slate-700 bg-slate-900 dark:bg-gray-900 min-h-[420px] p-8 bracket-container" key={tournamentId}>
         <SingleEliminationBracket
-          key={tournamentId}
           matches={matches as BracketMatchForLibrary[]}
           matchComponent={TennisMatchCard}
           theme={BRACKET_THEME}

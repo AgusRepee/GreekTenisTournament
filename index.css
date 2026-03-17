@@ -32,3 +32,10 @@ html.light [class*="border-gray-300"] {
 .bracket-container svg path[stroke] {
   stroke-width: 1;
 }
+
+/* Mobile (max-width: 768px): no internal scrollbars, avoid horizontal overflow */
+@media (max-width: 768px) {
+  body {
+    overflow-x: hidden;
+  }
+}

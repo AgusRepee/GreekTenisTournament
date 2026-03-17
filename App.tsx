@@ -1,11 +1,13 @@
 import React, { useState, Suspense, lazy } from 'react';
 import { Navbar } from './components/Navbar';
 import { Footer } from './components/Footer';
+import { CookieBanner } from './components/CookieBanner';
 import { HomeScreen } from './screens/HomeScreen';
 import { DirectoryScreen } from './screens/DirectoryScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { RankingsScreen } from './screens/RankingsScreen';
 import { PlayerSearchScreen } from './screens/PlayerSearchScreen';
+import { ContactScreen } from './screens/ContactScreen';
 
 const TournamentDetailScreen = lazy(() => import('./screens/TournamentDetailScreen').then((m) => ({ default: m.TournamentDetailScreen })));
 
@@ -21,6 +23,7 @@ const App: React.FC = () => {
       case 'profile': return <ProfileScreen selectedPlayerId={selectedPlayerId} />;
       case 'rankings': return <RankingsScreen setScreen={setScreen} setSelectedPlayerId={setSelectedPlayerId} />;
       case 'players': return <PlayerSearchScreen setScreen={setScreen} setSelectedPlayerId={setSelectedPlayerId} />;
+      case 'contact': return <ContactScreen />;
       case 'tournament_detail':
         return (
           <Suspense fallback={<div className="flex flex-1 items-center justify-center py-20 text-[#616f89] dark:text-gray-400">Cargando torneo...</div>}>
@@ -37,7 +40,8 @@ const App: React.FC = () => {
       <div className="flex-1 flex flex-col">
         {renderScreen()}
       </div>
-      <Footer />
+      <Footer setScreen={setScreen} />
+      <CookieBanner />
     </div>
   );
 };

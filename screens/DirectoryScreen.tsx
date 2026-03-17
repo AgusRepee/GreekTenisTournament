@@ -30,6 +30,7 @@ interface DirectoryScreenProps {
 const LEAGUES_LIST: LeagueNum[] = [1, 2, 3, 4, 5];
 
 interface TournamentCardProps {
+  key?: React.Key;
   tournament: Tournament;
   onVerTorneo: (t: Tournament) => void;
   /** When provided, upcoming card shows "Inscribirse" that opens this (modal). */

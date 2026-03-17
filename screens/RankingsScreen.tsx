@@ -52,8 +52,8 @@ export const RankingsScreen: React.FC<RankingsScreenProps> = ({ setScreen, setSe
               <h1 className="text-4xl font-black leading-tight tracking-[-0.033em] text-[#111318] dark:text-white">Rankings</h1>
               <p className="text-[#616f89] dark:text-[#9ca3af] text-base font-normal">Ranking global por puntos. Filtrá por liga para ver solo esa liga.</p>
             </div>
-            <div className="border-b border-gray-300 dark:border-gray-700">
-              <div className="flex gap-4 overflow-x-auto no-scrollbar pb-px">
+            <div className="border-b border-gray-300 dark:border-gray-700 overflow-visible">
+              <div className="flex gap-4 flex-wrap overflow-visible pb-px max-md:flex-wrap">
                 {(['all', ...LEAGUES_RANKING] as const).map((tab) => {
                   const label = tab === 'all' ? 'Todos' : `Liga ${tab}`;
                   const isActive = leagueFilter === tab;
@@ -71,8 +71,50 @@ export const RankingsScreen: React.FC<RankingsScreenProps> = ({ setScreen, setSe
             </div>
           </div>
 
-          <div className="flex flex-col overflow-hidden rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm">
-            <div className="overflow-x-auto">
+          <div className="flex flex-col overflow-visible rounded-xl border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm max-md:overflow-visible">
+            {/* Mobile: position, photo, name, points only — no horizontal scroll */}
+            <div className="md:hidden flex flex-col overflow-visible">
+              {rows.map((row, index) => {
+                const initial = row.player.name.split(' ').map(n => n[0]).join('').slice(0, 2);
+                const isEven = index % 2 === 0;
+                return (
+                  <div
+                    key={row.playerId}
+                    onClick={() => handleRowClick(row)}
+                    className={`flex items-center gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-700 cursor-pointer transition-colors overflow-visible ${isEven ? 'bg-white dark:bg-gray-900' : 'bg-gray-50 dark:bg-gray-800/50'} active:bg-gray-100 dark:active:bg-gray-800`}
+                  >
+                    <span className="text-[#616f89] dark:text-gray-400 font-semibold text-base w-8 shrink-0">
+                      {row.position <= 3 ? (
+                        <span className={row.position === 1 ? 'text-amber-600 dark:text-amber-400' : row.position === 2 ? 'text-gray-600 dark:text-gray-400' : 'text-orange-600 dark:text-orange-400'}>
+                          #{row.position}
+                        </span>
+                      ) : (
+                        `#${row.position}`
+                      )}
+                    </span>
+                    {row.player.profileImage ? (
+                      <img
+                        src={getFlagImageUrl(row.player.profileImage)}
+                        alt=""
+                        className="size-12 rounded-full object-cover object-top shrink-0 ring-2 ring-gray-200 dark:ring-gray-600"
+                      />
+                    ) : (
+                      <div className="size-12 rounded-full overflow-hidden bg-primary/10 flex items-center justify-center text-primary font-bold text-sm shrink-0 ring-2 ring-gray-200 dark:ring-gray-600">
+                        {initial}
+                      </div>
+                    )}
+                    <span className="flex-1 min-w-0 font-bold text-[#111318] dark:text-white text-base truncate">
+                      {row.player.name}
+                    </span>
+                    <span className="font-bold text-[#111318] dark:text-white text-base shrink-0 tabular-nums">
+                      {row.points.toLocaleString('es-AR')} pts
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            {/* Desktop: table unchanged */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-gray-50 dark:bg-gray-800/80 border-b border-gray-300 dark:border-gray-700">

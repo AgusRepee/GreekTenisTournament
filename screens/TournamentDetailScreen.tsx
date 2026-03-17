@@ -19,6 +19,7 @@ import {
   getLiga3Preclasificacion,
   LIGA3_PLAYOFF_RULES,
   LIGA3_CLASSIFICATION_RULES,
+  getBracketMatchesForLibrary,
 } from '../src/lib/mockData';
 import { TournamentBracket } from '../src/components/TournamentBracket';
 
@@ -93,9 +94,12 @@ interface TournamentDetailScreenProps {
 
 type ResultadosFilter = 'todos' | 'fase-grupos' | 'eliminacion';
 
+type EliminationRoundTab = '1' | '2' | '3';
+
 export const TournamentDetailScreen: React.FC<TournamentDetailScreenProps> = ({ tournamentId, setScreen }) => {
   const [section, setSection] = useState<SectionId>('resumen');
   const [resultadosFilter, setResultadosFilter] = useState<ResultadosFilter>('todos');
+  const [eliminationRoundTab, setEliminationRoundTab] = useState<EliminationRoundTab>('1');
   const tournament = tournamentId ? getTournamentById(tournamentId) : getTournamentById('t-novak');
   const groupTables = tournament ? getGroupTablesWithSetStats(tournament.id) : [];
   const groupFixtures = tournament ? getGroupStageFixtures(tournament.id) : [];
@@ -145,7 +149,7 @@ export const TournamentDetailScreen: React.FC<TournamentDetailScreenProps> = ({ 
       <div className="max-w-6xl mx-auto w-full px-4 md:px-6 py-6 flex flex-col gap-6 bg-gray-100 dark:bg-gray-900 min-h-full">
         {/* Section navigation — horizontally scrollable on mobile */}
         <nav
-          className="flex gap-1 overflow-x-auto pb-2 -mx-1 scroll-smooth snap-x snap-mandatory md:flex-wrap md:overflow-visible md:snap-none"
+          className="flex flex-wrap gap-1 overflow-visible pb-2 -mx-1 md:flex-wrap"
           aria-label="Secciones del torneo"
         >
           {SECTIONS.map(({ id, label, icon }) => (
@@ -224,9 +228,9 @@ export const TournamentDetailScreen: React.FC<TournamentDetailScreenProps> = ({ 
               </div>
             </section>
 
-            <section className="bg-white dark:bg-gray-900 rounded-xl overflow-hidden border border-gray-300 dark:border-gray-700 shadow-sm">
+            <section className="bg-white dark:bg-gray-900 rounded-xl overflow-visible border border-gray-300 dark:border-gray-700 shadow-sm max-md:overflow-visible">
               <h2 className="text-xl font-bold text-[#111318] dark:text-white p-6 pb-0">Top 5</h2>
-              <div className="overflow-x-auto p-6">
+              <div className="overflow-x-auto max-md:overflow-visible p-6">
                 {isLiga3 ? (
                   <table className="w-full text-sm text-left">
                     <thead>
@@ -285,9 +289,65 @@ export const TournamentDetailScreen: React.FC<TournamentDetailScreenProps> = ({ 
         {/* Fase de grupos: tablas + fechas en 3 columnas (una por grupo) */}
         {section === 'fase-grupos' && (
           <>
-            <section className="bg-white dark:bg-gray-900 rounded-xl p-6 border border-gray-300 dark:border-gray-700 shadow-sm">
+            <section className="bg-white dark:bg-gray-900 rounded-xl p-6 border border-gray-300 dark:border-gray-700 shadow-sm overflow-visible">
               <h2 className="text-xl font-bold text-[#111318] dark:text-white mb-4">Fase de grupos</h2>
-              <div className="flex flex-col gap-8">
+              {/* Mobile: misma estética que desktop (círculos, colores, filas) con menos columnas */}
+              <div className="md:hidden flex flex-col gap-6 overflow-visible">
+                {groupTables.map((group) => (
+                  <div key={group.name} className="overflow-hidden rounded-lg border border-gray-300 dark:border-gray-700">
+                    <div className="bg-gray-50 dark:bg-gray-800/50 px-4 py-2.5 border-b border-gray-300 dark:border-gray-700">
+                      <h3 className="font-bold text-[#111318] dark:text-white text-sm">{group.name}</h3>
+                    </div>
+                    {/* Fila de encabezado como en desktop */}
+                    <div className="grid grid-cols-[auto_1fr_auto] gap-2 px-3 py-2 border-b border-gray-300 dark:border-gray-700 bg-gray-50/80 dark:bg-gray-800/80 text-xs font-bold text-[#616f89] dark:text-gray-400 uppercase tracking-wider">
+                      <span className="w-8 text-center">Pos</span>
+                      <span>Jugador</span>
+                      <span className="text-right tabular-nums w-20">PG · PP · ±</span>
+                    </div>
+                    <div className="divide-y divide-[#f0f2f4] dark:divide-gray-700 overflow-visible">
+                      {group.rows.map((row) => {
+                        const setDiff = (row.setsWon ?? 0) - (row.setsLost ?? 0);
+                        const playerLabel = getPlayerById(row.playerId)?.name ?? '—';
+                        const seed = isLiga3 ? getLiga3Preclasificacion(row.playerId) : getPlayerWithDisplay(row.playerId)?.position;
+                        const playerWithRanking = seed != null ? `${playerLabel} (${seed})` : playerLabel;
+                        const isQualified = isLiga3 && row.position <= 3;
+                        const posCircleClass =
+                          row.position <= 2
+                            ? 'bg-green-500/20 dark:bg-green-500/30 text-green-700 dark:text-green-300 ring-2 ring-green-500/60 dark:ring-green-400/50'
+                            : row.position <= 4
+                              ? 'bg-blue-500/20 dark:bg-blue-500/30 text-blue-700 dark:text-blue-300 ring-2 ring-blue-500/60 dark:ring-blue-400/50'
+                              : 'bg-red-500/20 dark:bg-red-500/30 text-red-700 dark:text-red-300 ring-2 ring-red-500/60 dark:ring-red-400/50';
+                        return (
+                          <div
+                            key={row.playerId}
+                            className={`grid grid-cols-[auto_1fr_auto] gap-2 items-center px-3 py-2.5 min-w-0 ${
+                              isQualified ? 'bg-slate-50/80 dark:bg-slate-800/50' : 'bg-white dark:bg-gray-900'
+                            }`}
+                          >
+                            <span className={`inline-flex items-center justify-center w-7 h-7 rounded-full font-semibold text-sm shrink-0 ${posCircleClass}`}>
+                              {row.position}
+                            </span>
+                            <span className="font-medium text-[#111318] dark:text-white text-sm truncate min-w-0">
+                              {playerWithRanking}
+                            </span>
+                            <div className="flex items-center justify-end gap-1.5 text-sm tabular-nums shrink-0 w-20">
+                              <span className="text-green-600 dark:text-green-400 font-medium">{row.PG ?? '—'}</span>
+                              <span className="text-[#616f89] dark:text-gray-500">·</span>
+                              <span className="text-red-600 dark:text-red-400 font-medium">{row.PP ?? '—'}</span>
+                              <span className="text-[#616f89] dark:text-gray-500">·</span>
+                              <span className={`font-medium ${setDiff >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                                {setDiff >= 0 ? '+' : ''}{setDiff}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {/* Desktop: table unchanged */}
+              <div className="hidden md:flex flex-col gap-8">
                 {groupTables.map((group) => (
                   <div key={group.name} className="overflow-hidden rounded-lg border border-gray-300 dark:border-gray-700 pr-4">
                     <div className="bg-gray-50 dark:bg-gray-800/50 px-4 py-2 border-b border-gray-300 dark:border-gray-700">
@@ -428,17 +488,70 @@ export const TournamentDetailScreen: React.FC<TournamentDetailScreenProps> = ({ 
 
         {/* Eliminación */}
         {section === 'eliminacion' && (
-          <section className="bg-white dark:bg-gray-900 rounded-xl p-6 border border-gray-300 dark:border-gray-700 shadow-sm">
+          <section className="bg-white dark:bg-gray-900 rounded-xl p-6 border border-gray-300 dark:border-gray-700 shadow-sm overflow-visible">
             <h2 className="text-xl font-bold text-[#111318] dark:text-white mb-6">Eliminación</h2>
-            <BracketErrorBoundary tournamentId={tournament.id}>
-              <TournamentBracket tournamentId={tournament.id} />
-            </BracketErrorBoundary>
+            {/* Mobile: tabs + match cards, no bracket */}
+            <div className="md:hidden flex flex-col gap-4 overflow-visible">
+              <div className="flex flex-wrap gap-2">
+                {(['1', '2', '3'] as const).map((round) => (
+                  <button
+                    key={round}
+                    type="button"
+                    onClick={() => setEliminationRoundTab(round)}
+                    className={`px-4 py-2.5 rounded-lg text-sm font-semibold transition-colors ${
+                      eliminationRoundTab === round
+                        ? 'bg-primary text-white'
+                        : 'bg-gray-100 dark:bg-gray-800 text-[#616f89] dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                    }`}
+                  >
+                    {round === '1' ? 'Cuartos' : round === '2' ? 'Semifinal' : 'Final'}
+                  </button>
+                ))}
+              </div>
+              <div className="flex flex-col gap-3 overflow-visible">
+                {(() => {
+                  const bracketMatches = getBracketMatchesForLibrary(tournament.id);
+                  const roundMatches = bracketMatches.filter((m) => m.tournamentRoundText === eliminationRoundTab);
+                  return roundMatches.map((match) => {
+                    const [top, bottom] = match.participants;
+                    const topWon = top?.isWinner === true;
+                    const bottomWon = bottom?.isWinner === true;
+                    const topName = top?.name ?? 'TBD';
+                    const bottomName = bottom?.name ?? 'TBD';
+                    const topSeed = top?.ranking != null ? ` (${top.ranking})` : '';
+                    const bottomSeed = bottom?.ranking != null ? ` (${bottom.ranking})` : '';
+                    const result = top?.resultText || bottom?.resultText || '–';
+                    return (
+                      <div
+                        key={String(match.id)}
+                        className="rounded-xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-4 overflow-visible"
+                      >
+                        <p className={`text-sm font-semibold ${topWon ? 'text-primary dark:text-primary' : 'text-[#111318] dark:text-white'}`}>
+                          {topName}{topSeed}
+                        </p>
+                        <p className="text-xs text-[#616f89] dark:text-gray-400 py-1">vs</p>
+                        <p className={`text-sm font-semibold ${bottomWon ? 'text-primary dark:text-primary' : 'text-[#111318] dark:text-white'}`}>
+                          {bottomName}{bottomSeed}
+                        </p>
+                        <p className="text-sm font-bold text-primary mt-2 pt-2 border-t border-gray-300 dark:border-gray-700">Resultado: {result}</p>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+            {/* Desktop: bracket unchanged */}
+            <div className="hidden md:block">
+              <BracketErrorBoundary tournamentId={tournament.id}>
+                <TournamentBracket tournamentId={tournament.id} />
+              </BracketErrorBoundary>
+            </div>
           </section>
         )}
 
         {/* Resultados: todos los partidos jugados con filtro */}
         {section === 'resultados' && (
-          <section className="bg-white dark:bg-gray-900 rounded-xl p-6 border border-gray-300 dark:border-gray-700 shadow-sm">
+          <section className="bg-white dark:bg-gray-900 rounded-xl p-6 border border-gray-300 dark:border-gray-700 shadow-sm overflow-visible">
             <h2 className="text-xl font-bold text-[#111318] dark:text-white mb-4">Resultados</h2>
             {isLiga3 ? (
               <>
@@ -458,7 +571,55 @@ export const TournamentDetailScreen: React.FC<TournamentDetailScreenProps> = ({ 
                     </button>
                   ))}
                 </div>
-                <div className="overflow-x-auto">
+                {/* Mobile: ATP-style match cards — date only, no time/court, scores right-aligned */}
+                <div className="md:hidden flex flex-col gap-3 overflow-visible">
+                  {(() => {
+                    const groupRows = resultadosFilter !== 'eliminacion' ? getLiga3GroupStageResults() : [];
+                    const elimEntries = resultadosFilter !== 'fase-grupos'
+                      ? getLiga3Calendar().filter((e) => ['Cuartos de final', 'Semifinales', 'Final'].includes(e.phase))
+                      : [];
+                    const groupCards = groupRows.map((m, i) => ({ key: `g-${i}`, date: m.date, playerA: m.playerA, playerB: m.playerB, result: m.score, phase: m.groupName }));
+                    const elimCards = elimEntries.map((e, i) => ({ key: `e-${i}`, date: e.date, playerA: e.playerA, playerB: e.playerB, result: e.result, phase: e.phase }));
+                    const list = resultadosFilter === 'todos' ? [...groupCards, ...elimCards] : resultadosFilter === 'fase-grupos' ? groupCards : elimCards;
+                    const parseScore = (s: string): { a: number[]; b: number[] } => {
+                      const sets = s.split(',').map((x) => x.trim().split('-').map(Number));
+                      const a = sets.map(([x]) => x).filter((n) => !Number.isNaN(n));
+                      const b = sets.map(([, y]) => y).filter((n) => !Number.isNaN(n));
+                      return { a, b };
+                    };
+                    const setsWonByA = (setA: number[], setB: number[]) =>
+                      setA.filter((v, i) => v > (setB[i] ?? 0)).length;
+                    return list.map((item) => {
+                      const { a: setA, b: setB } = parseScore(item.result);
+                      const aSets = setsWonByA(setA, setB);
+                      const bSets = setsWonByA(setB, setA);
+                      const aWon = setA.length > 0 && aSets > bSets;
+                      const bWon = setB.length > 0 && bSets > aSets;
+                      return (
+                        <div key={item.key} className="rounded-xl border border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 p-4 overflow-visible relative">
+                          <span className="absolute top-3 right-3 text-xs font-medium text-[#616f89] dark:text-gray-400">{item.date}</span>
+                          <div className="flex flex-col gap-1.5 pr-20">
+                            <div className="flex items-center justify-between gap-2 min-w-0">
+                              <span className={`text-sm truncate ${aWon ? 'font-bold text-primary' : 'text-[#111318] dark:text-white'}`}>{item.playerA}</span>
+                              <span className="flex gap-2 tabular-nums text-sm shrink-0">
+                                {setA.length ? setA.map((n, i) => <span key={i} className={aWon ? 'font-bold text-primary' : ''}>{n}</span>) : '–'}
+                              </span>
+                            </div>
+                            <div className="flex items-center justify-between gap-2 min-w-0">
+                              <span className={`text-sm truncate ${bWon ? 'font-bold text-primary' : 'text-[#111318] dark:text-white'}`}>{item.playerB}</span>
+                              <span className="flex gap-2 tabular-nums text-sm shrink-0">
+                                {setB.length ? setB.map((n, i) => <span key={i} className={bWon ? 'font-bold text-primary' : ''}>{n}</span>) : '–'}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+                {/* Desktop: table unchanged */}
+                <div className="hidden md:block overflow-visible">
+                  <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-gray-300 dark:border-gray-700">
@@ -521,6 +682,7 @@ export const TournamentDetailScreen: React.FC<TournamentDetailScreenProps> = ({ 
                         })()}
                     </tbody>
                   </table>
+                </div>
                 </div>
               </>
             ) : (

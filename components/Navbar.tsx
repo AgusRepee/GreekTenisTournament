@@ -40,6 +40,7 @@ export const Navbar: React.FC<NavbarProps> = ({ currentScreen, setScreen }) => {
     { id: 'directory', label: 'Torneos' },
     { id: 'rankings', label: 'Rankings' },
     { id: 'players', label: 'Jugadores' },
+    { id: 'contact', label: 'Contacto' },
   ];
 
   const handleNavClick = (screenId: string) => {
