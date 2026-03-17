@@ -1,20 +1,22 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# GreekTenisTournament
 
-# Run and deploy your AI Studio app
+App de torneos de tenis. Contiene todo lo necesario para ejecutarla en local y desplegarla.
 
-This contains everything you need to run your app locally.
+## Ejecutar en local
 
-View your app in AI Studio: https://ai.studio/apps/temp/1
+**Requisitos:** Node.js
 
-## Run Locally
+1. Instalar dependencias:
+   ```bash
+   npm install
+   ```
+2. Configurar `GEMINI_API_KEY` en [.env.local](.env.local) con tu API key de Gemini
+3. Ejecutar la app:
+   ```bash
+   npm run dev
+   ```
 
-**Prerequisites:**  Node.js
+## Desplegar
 
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+- **GitHub Pages (manual):** `npm run deploy`
+- **GitHub Actions:** cada push a `main` despliega automáticamente si tienes Pages configurado con Source: GitHub Actions.
