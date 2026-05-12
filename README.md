@@ -1,6 +1,6 @@
-# GreekTenisTournament
+# Greek Tennis Series
 
-App de torneos de tenis. Contiene todo lo necesario para ejecutarla en local y desplegarla.
+App de torneos de tenis con frontend Vite/React y backend Express/Prisma para persistencia MySQL.
 
 ## Ejecutar en local
 
@@ -10,7 +10,7 @@ App de torneos de tenis. Contiene todo lo necesario para ejecutarla en local y d
    ```bash
    npm install
    ```
-2. Configurar `GEMINI_API_KEY` en [.env.local](.env.local) con tu API key de Gemini
+2. Copiar `.env.example` a `.env.local` y ajustar `VITE_API_URL` / `VITE_DATA_SOURCE`.
 3. Ejecutar la app:
    ```bash
    npm run dev
@@ -18,5 +18,6 @@ App de torneos de tenis. Contiene todo lo necesario para ejecutarla en local y d
 
 ## Desplegar
 
-- **GitHub Pages (manual):** `npm run deploy`
-- **GitHub Actions:** cada push a `main` despliega automáticamente si tienes Pages configurado con Source: GitHub Actions.
+- **Frontend Hostinger:** compilar con `VITE_DATA_SOURCE=api` y `VITE_API_URL=https://tu-api`.
+- **Backend Hostinger/MySQL:** ver `docs/hostinger-backend-mysql.md` y `server/.env.example`.
+- **Validación operativa:** ver `docs/admin-operativo-testing.md`.

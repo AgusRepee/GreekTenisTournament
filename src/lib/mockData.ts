@@ -1,14 +1,16 @@
 /**
  * Central mock data for the tennis club tournament website.
  * Visitors only view information. No login.
+ * Manual data updates: see docs/DATA_LOADING.md
  */
 
+import type { TournamentCatalogType } from '@/types/tournamentCatalog';
+import type { LigaTemplate } from '../types/tennisResults';
 import {
   getLiga3PlayerById,
   getLiga3GroupStandings,
   getLiga3TournamentRanking,
   LIGA3_BRACKET_MATCHES,
-  LIGA3_UPCOMING_FINAL,
   getLiga3GroupStageResults,
   getLiga3Calendar,
   LIGA3_STATUS,
@@ -17,27 +19,58 @@ import {
   LIGA3_POINTS_SYSTEM,
   LIGA3_CLASSIFICATION_RULES,
 } from './liga3Data';
+import { getClubSnapshot } from './clubDataStore';
+import { effectiveTournamentCatalogType } from './tennis/rankingPointsGreek500';
 
 export const CATEGORIES = ['Primera', 'Segunda', 'Tercera', 'Cuarta', 'Quinta A', 'Quinta B'] as const;
 export type CategoryKey = (typeof CATEGORIES)[number];
 
-/** Ligas para selector en página Torneos (Liga 1 = Primera, etc.) */
-export const LEAGUES = [1, 2, 3, 4, 5] as const;
-export type LeagueNum = (typeof LEAGUES)[number];
+/** Selector página Torneos / inicio: Ligas 1–6. */
+export const LEAGUES = [1, 2, 3, 4, 5, 6] as const;
+/** Número de liga en ranking, perfil y badges (1–6). */
+export type LeagueNum = 1 | 2 | 3 | 4 | 5 | 6;
 
-export function categoryToLeague(cat: CategoryKey): LeagueNum {
+export function categoryToLeague(cat: CategoryKey | string | undefined): LeagueNum {
   const map: Record<CategoryKey, LeagueNum> = {
     Primera: 1,
     Segunda: 2,
     Tercera: 3,
     Cuarta: 4,
     'Quinta A': 5,
-    'Quinta B': 5,
+    'Quinta B': 6,
   };
-  return map[cat];
+  if (cat == null) return 3;
+  const L = map[cat as CategoryKey];
+  return L ?? 3;
+}
+
+/** Categoría canónica para una liga 1–6 (inverso de `categoryToLeague`). */
+export function leagueToCategory(league: LeagueNum): CategoryKey {
+  const map: Record<LeagueNum, CategoryKey> = {
+    1: 'Primera',
+    2: 'Segunda',
+    3: 'Tercera',
+    4: 'Cuarta',
+    5: 'Quinta A',
+    6: 'Quinta B',
+  };
+  return map[league];
 }
 
 export type TournamentStatus = 'upcoming' | 'finished';
+
+/**
+ * Preclasificación oficial del torneo: snapshot del orden del ranking de liga al momento de fijarlo.
+ * No se actualiza sola cuando el ranking cambia; sirve para cabezas de serie en bracket y comunicación.
+ */
+export interface TournamentPreclasificacion {
+  /** ISO 8601 */
+  capturedAt: string;
+  /** Ej. "Ranking de liga" o "Top 8 ranking (Master Finals)". */
+  sourceLabel?: string;
+  /** Seed 1 = primer id; orden completo capturado (típicamente toda la liga o los inscritos). */
+  orderedPlayerIds: string[];
+}
 
 export interface PlayerStats {
   matchesPlayed: number;
@@ -45,12 +78,15 @@ export interface PlayerStats {
   losses: number;
 }
 
+/**
+ * Jugador persistible: identidad y perfil. Puntos, PJ/PG/PP y rankings salen de partidos + selectores.
+ */
+export type PlayerProfileVisibility = 'visible' | 'hidden';
+
 export interface Player {
   id: string;
   name: string;
   category: CategoryKey;
-  points: number;
-  stats: PlayerStats;
   /** YYYY-MM-DD */
   birthDate?: string;
   nationality?: string;
@@ -58,35 +94,63 @@ export interface Player {
   playingHand?: 'Derecha' | 'Zurdo';
   /** Golpe principal */
   mainShot?: string;
-  titles?: number;
-  runnerUps?: number;
-  /** Best global ranking position ever (e.g. 1). */
-  bestGlobalPosition?: number;
   /** Promotion/relegation history for profile. */
   promotionHistory?: PromotionHistoryEntry[];
-  /** Profile photo filename in /img (e.g. 'juan.png'). */
+  /** Foto de perfil: nombre de archivo en `/img` o `data:image/...` (local). */
   profileImage?: string;
+  /** Altura en centímetros (opcional; solo se muestra en perfil si existe). */
+  heightCm?: number;
+  /** Texto breve opcional en la ficha. */
+  profileBio?: string;
+  /** Visibilidad del perfil en listados públicos (admin siempre puede ver). */
+  profileVisibility?: PlayerProfileVisibility;
+  /** Plantel: inactivo no oculta el perfil salvo que también esté `hidden`. */
+  rosterActive?: boolean;
+  /** Apodo (búsqueda y ficha). */
+  nickname?: string;
+  /** Notas solo panel admin; no se muestran en el sitio público. */
+  internalNotes?: string;
 }
 
 export interface Tournament {
   id: string;
   name: string;
   category: CategoryKey;
+  /** Greek 500 (regular) vs Masters Greek 1000 (cierre); define tabla base de puntos ranking en servidor. */
+  tournamentType?: TournamentCatalogType;
   status: TournamentStatus;
   startDate: string;
   endDate: string;
   location: string;
+  /** Conteo mostrable: derivar de partidos cuando falte. */
+  matchCount?: number;
+  /** Ignorado por el motor: campeón/finalista salen del cuadro. Solo compat. JSON viejo. */
   winnerId?: string | null;
   finalistId?: string | null;
-  matchCount: number;
-  /** Cover image filename in /img (e.g. 'novak.png') */
+  /** Cover image filename en /img (Novak por liga: novakrojo, novaknaranja, novakazul L3, novajverde L4, …) */
   coverImage?: string;
-  /** Liga 1-5 for filter; defaults from category if not set */
+  /** Liga 1–5 en torneos (filtro Directorio); defaults desde categoría si no se setea */
   league?: LeagueNum;
   /** Total slots (cupos) for upcoming tournaments */
   slotsTotal?: number;
   /** Taken slots for upcoming tournaments */
   slotsTaken?: number;
+  /** Plantilla `docs/ligaN.json` cuando el torneo Novak se genera desde /docs */
+  ligaDoc?: LigaTemplate;
+  /** Archivado en admin: solo lectura en el workspace del torneo. */
+  archived?: boolean;
+  /**
+   * Admin: cierre oficial de la fase de grupos (habilita armado de eliminación y bloquea edición de resultados de fixture
+   * hasta desbloquear). Ausente = fase abierta.
+   */
+  groupStageStatus?: 'confirmed';
+  /**
+   * Plantel por grupo (admin Tabla): IDs de jugador del club o `name:Norm` provisorios.
+   * Claves = letra de plantilla (`A`, `B`, …). Si falta, se usa `ligaDoc` / `ligasData`.
+   */
+  groupRosterOverride?: Record<string, string[]>;
+  /** Orden de cabeza de serie congelado respecto al ranking vivo (ver `TournamentPreclasificacion`). */
+  preclasificacion?: TournamentPreclasificacion;
 }
 
 export interface Match {
@@ -127,10 +191,14 @@ export interface GroupTableRowWithSets {
   PJ: number;
   setsWon: number;
   setsLost: number;
+  /** Games ganados / perdidos en la fase de grupos (desktop). */
+  gamesWon: number;
+  gamesLost: number;
   setDiff: number;
   /** Optional: for Liga 3 group tables */
   PG?: number;
   PP?: number;
+  /** @deprecated La tabla de grupo no usa puntos tipo liga; no mostrar en UI. */
   points?: number;
   /** Cambio de posición desde la última fecha: +2 = subió 2, -1 = bajó 1 (Liga 3) */
   positionChange?: number;
@@ -159,6 +227,8 @@ export interface GroupFixtureMatch {
   playerA: string;
   playerB: string;
   ballsByA: boolean;
+  /** Marcador público desde el store de resultados (admin); sin valor → UI muestra Pendiente */
+  resultSummary?: string | null;
 }
 
 /** One round (Fecha) in a group: list of matches + optional libre */
@@ -187,6 +257,12 @@ export interface ScheduledMatch {
   date?: string;
   /** Time e.g. "10:00" */
   time?: string;
+  /** Origen agenda: torneo concreto para navegación desde la home (evita ambigüedad por liga). */
+  tournamentId?: string;
+  /** Motivos de relevancia (p. ej. `listImportantMatchesFromSchedules`), del más al menos peso. */
+  reasonLabels?: string[];
+  /** Motivo principal para mostrar en tarjetas (típicamente `reasonLabels[0]`). */
+  mainReason?: string;
 }
 
 export interface RankingRow {
@@ -201,6 +277,8 @@ export interface RankingRow {
   setsWon?: number;
   /** Optional: sets lost in tournament (e.g. Liga 3) */
   setsLost?: number;
+  gamesWon?: number;
+  gamesLost?: number;
   /** Change vs previous week: positive = up, negative = down, 0 = no change */
   rankingChange?: number;
   /** Net change in points since last update: positive = gained, negative = lost */
@@ -211,10 +289,12 @@ export interface RankingRow {
   tournamentsPlayed?: number;
   /** League number (1-5) for display as "Liga N" */
   leagueNum?: LeagueNum;
+  /** Ranking por liga canónico: nombre, foto y bandera mostrados en la tabla. */
+  rankingDisplay?: { name: string; avatarUrl: string; nationality?: string };
 }
 
-/** Leagues shown in ranking filter (Liga 1–4). */
-export const LEAGUES_RANKING: LeagueNum[] = [1, 2, 3, 4];
+/** Pestañas de ranking en pantalla Rankings (Ligas 1–6). */
+export const LEAGUES_RANKING: LeagueNum[] = [1, 2, 3, 4, 5, 6];
 
 export interface PromotionHistoryEntry {
   year: number;
@@ -223,144 +303,38 @@ export interface PromotionHistoryEntry {
   fromLeague?: LeagueNum;
 }
 
-// ---- Sample players (one per category as specified) ----
-const PLAYERS_BY_CATEGORY: Record<CategoryKey, string[]> = {
-  Primera: ['Juan Perez', 'Martin Lopez', 'Tomas Alvarez', 'Federico Ruiz'],
-  Segunda: ['Nicolas Gomez', 'Diego Silva', 'Lucas Fernandez', 'Mariano Ortiz'],
-  Tercera: ['Pablo Diaz', 'Ricardo Mendez', 'Franco Torres'],
-  Cuarta: ['Javier Castro', 'Matias Suarez', 'Bruno Vega'],
-  'Quinta A': ['Kevin Rojas', 'Gonzalo Paz', 'Lucas Romero'],
-  'Quinta B': ['Nicolas Lara', 'Brian Soto', 'Tomas Rivas'],
-};
-
-const PLAYER_PROFILES: Partial<Player>[] = [
-  { birthDate: '1990-05-12', nationality: 'Argentina', playingHand: 'Derecha', mainShot: 'Derecha', titles: 3, runnerUps: 2 },
-  { birthDate: '1988-11-03', nationality: 'Argentina', playingHand: 'Derecha', mainShot: 'Reves', titles: 2, runnerUps: 1 },
-  { birthDate: '1992-07-22', nationality: 'Argentina', playingHand: 'Zurdo', mainShot: 'Derecha', titles: 1, runnerUps: 3 },
-  { birthDate: '1985-01-15', nationality: 'Argentina', playingHand: 'Derecha', mainShot: 'Derecha', titles: 5, runnerUps: 1 },
-  { birthDate: '1994-09-08', nationality: 'Uruguay', playingHand: 'Derecha', mainShot: 'Reves', titles: 0, runnerUps: 2 },
-  { birthDate: '1991-03-30', nationality: 'Argentina', playingHand: 'Zurdo', mainShot: 'Derecha', titles: 1, runnerUps: 0 },
-  { birthDate: '1989-12-10', nationality: 'Argentina', playingHand: 'Derecha', mainShot: 'Derecha', titles: 2, runnerUps: 2 },
-  { birthDate: '1993-06-18', nationality: 'Chile', playingHand: 'Derecha', mainShot: 'Reves', titles: 0, runnerUps: 1 },
-  { birthDate: '1987-04-25', nationality: 'Argentina', playingHand: 'Derecha', mainShot: 'Derecha', titles: 1, runnerUps: 1 },
-  { birthDate: '1995-08-02', nationality: 'Argentina', playingHand: 'Zurdo', mainShot: 'Derecha', titles: 0, runnerUps: 0 },
-  { birthDate: '1990-10-14', nationality: 'Argentina', playingHand: 'Derecha', mainShot: 'Reves', titles: 0, runnerUps: 0 },
-  { birthDate: '1986-02-28', nationality: 'Argentina', playingHand: 'Derecha', mainShot: 'Derecha', titles: 2, runnerUps: 1 },
-  { birthDate: '1992-11-20', nationality: 'Argentina', playingHand: 'Derecha', mainShot: 'Derecha', titles: 1, runnerUps: 0 },
-  { birthDate: '1988-05-07', nationality: 'Paraguay', playingHand: 'Zurdo', mainShot: 'Derecha', titles: 0, runnerUps: 0 },
-  { birthDate: '1994-01-12', nationality: 'Argentina', playingHand: 'Derecha', mainShot: 'Reves', titles: 0, runnerUps: 0 },
-  { birthDate: '1991-07-05', nationality: 'Argentina', playingHand: 'Derecha', mainShot: 'Derecha', titles: 0, runnerUps: 0 },
-  { birthDate: '1989-09-30', nationality: 'Argentina', playingHand: 'Zurdo', mainShot: 'Derecha', titles: 0, runnerUps: 0 },
-  { birthDate: '1993-03-15', nationality: 'Argentina', playingHand: 'Derecha', mainShot: 'Derecha', titles: 0, runnerUps: 0 },
-];
-
-function buildPlayers(): Player[] {
-  const list: Player[] = [];
-  let id = 0;
-  (CATEGORIES as readonly string[]).forEach((cat, catIdx) => {
-    const names = PLAYERS_BY_CATEGORY[cat as CategoryKey];
-    names.forEach((name, i) => {
-      const wins = 5 + Math.floor(Math.random() * 12);
-      const losses = 2 + Math.floor(Math.random() * 8);
-      const profile = PLAYER_PROFILES[id % PLAYER_PROFILES.length];
-      list.push({
-        id: `p-${id}`,
-        name,
-        category: cat as CategoryKey,
-        points: 800 - catIdx * 80 - i * 40 + Math.floor(Math.random() * 30),
-        stats: { matchesPlayed: wins + losses, wins, losses },
-        birthDate: profile?.birthDate,
-        nationality: profile?.nationality,
-        playingHand: profile?.playingHand,
-        mainShot: profile?.mainShot,
-        titles: profile?.titles ?? 0,
-        runnerUps: profile?.runnerUps ?? 0,
-      });
-      id++;
-    });
-  });
-  return list.sort((a, b) => b.points - a.points);
+function firstPlayerNamesInLeague(playerList: Player[], league: LeagueNum, count: number): string[] {
+  return playerList
+    .filter((p) => categoryToLeague(p.category) === league)
+    .slice(0, count)
+    .map((p) => p.name);
 }
 
-export const players: Player[] = buildPlayers();
-
-/** Returns start/end dates for "current" period (ongoing now) so tournaments appear in progress. */
-function getCurrentPeriodDates(): { startDate: string; endDate: string } {
-  const today = new Date();
-  const start = new Date(today);
-  start.setDate(start.getDate() - 7);
-  const end = new Date(today);
-  end.setDate(end.getDate() + 21);
-  return {
-    startDate: start.toISOString().slice(0, 10),
-    endDate: end.toISOString().slice(0, 10),
-  };
+/** Partidos destacados inicio: nombres según jugadores actuales del store. */
+export function getFeaturedMatches(): ScheduledMatch[] {
+  const players = getClubSnapshot().players;
+  const l1 = firstPlayerNamesInLeague(players, 1, 4);
+  const l5 = firstPlayerNamesInLeague(players, 5, 2);
+  return [
+    { id: 'sm-1', label: 'Final de Primera', playerA: l1[0] ?? '—', playerB: l1[1] ?? '—', category: 'Primera', dateTime: 'Sábado 20 Abr, 11:00', round: 'Final', date: 'sáb 20 abr', time: '11:00' },
+    { id: 'sm-2', label: 'Semifinal Quinta A', playerA: l5[0] ?? '—', playerB: l5[1] ?? '—', category: 'Quinta A', dateTime: 'Domingo 21 Abr, 10:00', round: 'Semifinal', date: 'dom 21 abr', time: '10:00' },
+    { id: 'sm-3', label: 'Partido destacado del fin de semana', playerA: l1[2] ?? '—', playerB: l1[3] ?? '—', category: 'Primera', dateTime: 'Sábado 20 Abr, 16:00', round: 'Semifinal', date: 'sáb 20 abr', time: '16:00' },
+  ];
 }
 
-const currentPeriod = getCurrentPeriodDates();
+export function getUpcomingImportantMatches(): ScheduledMatch[] {
+  const players = getClubSnapshot().players;
+  const l2 = firstPlayerNamesInLeague(players, 2, 2);
+  const l3 = firstPlayerNamesInLeague(players, 3, 2);
+  return [
+    { id: 'sm-4', label: 'Cuartos de final Segunda', playerA: l2[0] ?? '—', playerB: l2[1] ?? '—', category: 'Segunda', dateTime: 'Viernes 19 Abr, 18:00', round: 'Cuartos', date: 'vie 19 abr', time: '18:00' },
+    { id: 'sm-5', label: 'Semifinal Tercera', playerA: l3[0] ?? '—', playerB: l3[1] ?? '—', category: 'Tercera', dateTime: 'Domingo 21 Abr, 12:00', round: 'Semifinal', date: 'dom 21 abr', time: '12:00' },
+  ];
+}
 
-// ---- Tournaments: Novak Djokovic Liga 1–5 (current) + upcoming + finished ----
-export const tournaments: Tournament[] = [
-  { id: 't-novak', name: 'Novak Djokovic - Liga 1', category: 'Primera', status: 'upcoming', startDate: currentPeriod.startDate, endDate: currentPeriod.endDate, location: 'Club de Tenis — Pistas centrales', matchCount: 16, coverImage: 'novak.png', league: 1, slotsTotal: 8, slotsTaken: 6 },
-  { id: 't-novak-l2', name: 'Novak Djokovic - Liga 2', category: 'Segunda', status: 'upcoming', startDate: currentPeriod.startDate, endDate: currentPeriod.endDate, location: 'Club de Tenis', matchCount: 16, coverImage: 'novak.png', league: 2, slotsTotal: 8, slotsTaken: 5 },
-  { id: 't-novak-l3', name: 'Novak Djokovic - Liga 3', category: 'Tercera', status: 'upcoming', startDate: currentPeriod.startDate, endDate: currentPeriod.endDate, location: 'Club de Tenis', matchCount: 16, coverImage: 'novak.png', league: 3, slotsTotal: 8, slotsTaken: 4 },
-  { id: 't-novak-l4', name: 'Novak Djokovic - Liga 4', category: 'Cuarta', status: 'upcoming', startDate: currentPeriod.startDate, endDate: currentPeriod.endDate, location: 'Club de Tenis', matchCount: 16, league: 4, slotsTotal: 8, slotsTaken: 3 },
-  { id: 't-novak-l5', name: 'Novak Djokovic - Liga 5', category: 'Quinta A', status: 'upcoming', startDate: currentPeriod.startDate, endDate: currentPeriod.endDate, location: 'Club de Tenis', matchCount: 20, league: 5, slotsTotal: 12, slotsTaken: 8 },
-  { id: 't-nadal', name: 'Torneo Rafael Nadal', category: 'Primera', status: 'upcoming', startDate: '2025-05-10', endDate: '2025-05-18', location: 'Club de Tenis', matchCount: 16, coverImage: 'nadal.png', league: 1, slotsTotal: 8, slotsTaken: 2 },
-  { id: 't-federer', name: 'Torneo Roger Federer', category: 'Primera', status: 'upcoming', startDate: '2025-06-01', endDate: '2025-06-09', location: 'Club de Tenis', matchCount: 16, coverImage: 'federer.png', league: 1, slotsTotal: 8, slotsTaken: 5 },
-  { id: 't-1', name: 'Torneo de Otoño', category: 'Primera', status: 'upcoming', startDate: '2025-04-15', endDate: '2025-04-22', location: 'Club de Tenis — Pistas centrales', matchCount: 16, league: 1, slotsTotal: 8, slotsTaken: 7 },
-  { id: 't-2', name: 'Copa Primera', category: 'Primera', status: 'upcoming', startDate: '2025-05-01', endDate: '2025-05-08', location: 'Club de Tenis', matchCount: 12, league: 1, slotsTotal: 8, slotsTaken: 4 },
-  { id: 't-3', name: 'Torneo Quinta A y B', category: 'Quinta A', status: 'upcoming', startDate: '2025-05-10', endDate: '2025-05-12', location: 'Club de Tenis', matchCount: 20, league: 5, slotsTotal: 12, slotsTaken: 9 },
-  { id: 't-4', name: 'Campeonato Segunda', category: 'Segunda', status: 'finished', startDate: '2024-02-01', endDate: '2024-02-10', location: 'Club de Tenis', winnerId: 'p-4', finalistId: 'p-5', matchCount: 16, league: 2 },
-  { id: 't-5', name: 'Torneo Verano 2024', category: 'Tercera', status: 'finished', startDate: '2024-01-10', endDate: '2024-01-18', location: 'Club de Tenis', winnerId: 'p-7', finalistId: 'p-8', matchCount: 14, league: 3 },
-  // Torneos de Juan Pérez (ejemplo perfil completo): títulos y finales
-  { id: 't-jp-1', name: 'Copa Primavera 2023', category: 'Primera', status: 'finished', startDate: '2023-09-15', endDate: '2023-09-24', location: 'Club de Tenis', winnerId: 'p-0', finalistId: 'p-1', matchCount: 16, league: 1 },
-  { id: 't-jp-2', name: 'Torneo Apertura 2024', category: 'Primera', status: 'finished', startDate: '2024-03-01', endDate: '2024-03-10', location: 'Club de Tenis', winnerId: 'p-0', finalistId: 'p-2', matchCount: 16, league: 1 },
-  { id: 't-jp-3', name: 'Campeonato de Verano 2023', category: 'Primera', status: 'finished', startDate: '2023-01-08', endDate: '2023-01-15', location: 'Sede Central', winnerId: 'p-0', finalistId: 'p-3', matchCount: 12, league: 1 },
-  { id: 't-jp-4', name: 'Copa Otoño 2023', category: 'Primera', status: 'finished', startDate: '2023-04-10', endDate: '2023-04-18', location: 'Club de Tenis', winnerId: 'p-0', finalistId: 'p-1', matchCount: 14, league: 1 },
-  { id: 't-jp-5', name: 'Torneo Fin de Año 2022', category: 'Primera', status: 'finished', startDate: '2022-12-01', endDate: '2022-12-09', location: 'Club de Tenis', winnerId: 'p-2', finalistId: 'p-0', matchCount: 16, league: 1 },
-  { id: 't-jp-6', name: 'Masters Primera 2023', category: 'Primera', status: 'finished', startDate: '2023-11-02', endDate: '2023-11-12', location: 'Pistas centrales', winnerId: 'p-0', finalistId: 'p-4', matchCount: 16, league: 1 },
-];
-
-// ---- Scheduled featured / upcoming important matches (no live) ----
-export const featuredMatches: ScheduledMatch[] = [
-  { id: 'sm-1', label: 'Final de Primera', playerA: 'Juan Perez', playerB: 'Martin Lopez', category: 'Primera', dateTime: 'Sábado 20 Abr, 11:00', round: 'Final', date: 'sáb 20 abr', time: '11:00' },
-  { id: 'sm-2', label: 'Semifinal Quinta A', playerA: 'Kevin Rojas', playerB: 'Gonzalo Paz', category: 'Quinta A', dateTime: 'Domingo 21 Abr, 10:00', round: 'Semifinal', date: 'dom 21 abr', time: '10:00' },
-  { id: 'sm-3', label: 'Partido destacado del fin de semana', playerA: 'Tomas Alvarez', playerB: 'Federico Ruiz', category: 'Primera', dateTime: 'Sábado 20 Abr, 16:00', round: 'Semifinal', date: 'sáb 20 abr', time: '16:00' },
-];
-
-export const upcomingImportantMatches: ScheduledMatch[] = [
-  { id: 'sm-4', label: 'Cuartos de final Segunda', playerA: 'Nicolas Gomez', playerB: 'Diego Silva', category: 'Segunda', dateTime: 'Viernes 19 Abr, 18:00', round: 'Cuartos', date: 'vie 19 abr', time: '18:00' },
-  { id: 'sm-5', label: 'Semifinal Tercera', playerA: 'Pablo Diaz', playerB: 'Ricardo Mendez', category: 'Tercera', dateTime: 'Domingo 21 Abr, 12:00', round: 'Semifinal', date: 'dom 21 abr', time: '12:00' },
-];
-
-// ---- Matches (results + bracket + scheduled) ----
-export const matches: Match[] = [
-  // t-novak bracket: quarterfinals (4), semifinals (2), final (1)
-  { id: 'mb-q1', tournamentId: 't-novak', playerA: 'p-0', playerB: 'p-1', score: '6-4, 6-3', winnerId: 'p-0', round: 'Cuartos de final' },
-  { id: 'mb-q2', tournamentId: 't-novak', playerA: 'p-2', playerB: 'p-3', score: '7-5, 6-2', winnerId: 'p-2', round: 'Cuartos de final' },
-  { id: 'mb-q3', tournamentId: 't-novak', playerA: 'p-4', playerB: 'p-5', score: '', winnerId: null, round: 'Cuartos de final', scheduledDate: '2024-04-22', scheduledTime: '10:00' },
-  { id: 'mb-q4', tournamentId: 't-novak', playerA: 'p-6', playerB: 'p-7', score: '', winnerId: null, round: 'Cuartos de final', scheduledDate: '2024-04-22', scheduledTime: '12:00' },
-  { id: 'mb-s1', tournamentId: 't-novak', playerA: 'p-0', playerB: 'p-2', score: '6-2, 4-6, 6-4', winnerId: 'p-0', round: 'Semifinales' },
-  { id: 'mb-s2', tournamentId: 't-novak', playerA: 'p-4', playerB: 'p-6', score: '', winnerId: null, round: 'Semifinales', scheduledDate: '2024-04-25', scheduledTime: '11:00' },
-  { id: 'mb-f', tournamentId: 't-novak', playerA: 'p-0', playerB: 'p-4', score: '', winnerId: null, round: 'Final', scheduledDate: '2024-04-28', scheduledTime: '15:00' },
-  // t-4, t-5
-  { id: 'm-1', tournamentId: 't-4', playerA: 'p-4', playerB: 'p-5', score: '6-4, 6-3', winnerId: 'p-4', round: 'Final' },
-  { id: 'm-2', tournamentId: 't-4', playerA: 'p-6', playerB: 'p-7', score: '7-5, 4-6, 6-2', winnerId: 'p-6', round: 'Semifinal' },
-  { id: 'm-3', tournamentId: 't-5', playerA: 'p-7', playerB: 'p-8', score: '6-2, 6-4', winnerId: 'p-7', round: 'Final' },
-  { id: 'm-4', tournamentId: 't-1', playerA: 'p-0', playerB: 'p-1', score: '', winnerId: null, round: 'Cuartos', scheduledDate: '2024-04-18', scheduledTime: '09:00' },
-  { id: 'm-5', tournamentId: 't-1', playerA: 'p-2', playerB: 'p-3', score: '', winnerId: null, round: 'Cuartos', scheduledDate: '2024-04-18', scheduledTime: '11:00' },
-  // Partidos recientes de Juan Pérez (p-0) con fase para perfil de ejemplo
-  { id: 'm-jp-1', tournamentId: 't-novak', playerA: 'p-0', playerB: 'p-4', score: '7-5, 6-3', winnerId: 'p-0', round: 'Final' },
-  { id: 'm-jp-2', tournamentId: 't-novak', playerA: 'p-0', playerB: 'p-2', score: '6-2, 4-6, 6-4', winnerId: 'p-0', round: 'Semifinales' },
-  { id: 'm-jp-3', tournamentId: 't-novak', playerA: 'p-0', playerB: 'p-1', score: '6-4, 6-3', winnerId: 'p-0', round: 'Cuartos de final' },
-  { id: 'm-jp-4', tournamentId: 't-jp-2', playerA: 'p-0', playerB: 'p-2', score: '6-3, 7-6(4)', winnerId: 'p-0', round: 'Final' },
-  { id: 'm-jp-5', tournamentId: 't-jp-2', playerA: 'p-0', playerB: 'p-3', score: '4-6, 6-4, 6-2', winnerId: 'p-0', round: 'Semifinales' },
-  { id: 'm-jp-6', tournamentId: 't-jp-2', playerA: 'p-0', playerB: 'p-1', score: '6-2, 6-4', winnerId: 'p-0', round: 'Cuartos de final' },
-  { id: 'm-jp-7', tournamentId: 't-jp-1', playerA: 'p-0', playerB: 'p-1', score: '7-6(2), 6-4', winnerId: 'p-0', round: 'Final' },
-  { id: 'm-jp-8', tournamentId: 't-jp-1', playerA: 'p-0', playerB: 'p-2', score: '6-4, 6-1', winnerId: 'p-0', round: 'Semifinales' },
-  { id: 'm-jp-9', tournamentId: 't-jp-5', playerA: 'p-0', playerB: 'p-2', score: '6-7(5), 6-4, 3-6', winnerId: 'p-2', round: 'Final' },
-];
+export function getDefaultProfilePlayerId(): string {
+  return getClubSnapshot().players[0]?.id ?? '';
+}
 
 /** Novak Djokovic – Liga 3: group stage fixtures (3 groups × 5 fechas) */
 export const LIGA3_GROUP_FIXTURES: GroupStageGroup[] = [
@@ -396,8 +370,30 @@ export const LIGA3_GROUP_FIXTURES: GroupStageGroup[] = [
   },
 ];
 
-/** Upcoming matches for Novak Djokovic – Liga 3: solo la final (Próximos partidos – Liga 3) */
-export const LIGA3_UPCOMING: UpcomingMatchDisplay[] = LIGA3_UPCOMING_FINAL;
+/** Próximos partidos Liga 3: Fecha 1 según fixture (sin resultados aún). */
+function buildLiga3UpcomingFromFixtures(): UpcomingMatchDisplay[] {
+  const out: UpcomingMatchDisplay[] = [];
+  let id = 0;
+  for (const g of LIGA3_GROUP_FIXTURES) {
+    const f1 = g.fechas.find((f) => f.fecha === 1);
+    if (!f1) continue;
+    for (const m of f1.matches) {
+      out.push({
+        id: `l3-up-${id++}`,
+        date: 'Por anunciar',
+        time: '—',
+        playerA: m.playerA,
+        playerB: m.playerB,
+        round: 'Fecha 1',
+        group: g.name,
+        ballsByPlayerA: m.ballsByA,
+      });
+    }
+  }
+  return out;
+}
+
+export const LIGA3_UPCOMING: UpcomingMatchDisplay[] = buildLiga3UpcomingFromFixtures();
 
 /** Partidos del cuadro de eliminación Liga 3 para getBracketRounds / bracket */
 const LIGA3_MATCHES: Match[] = LIGA3_BRACKET_MATCHES.map((m) => ({
@@ -512,83 +508,34 @@ export function getTournamentSchedulePhases(): { phase: string; dateLabel: strin
   ];
 }
 
-const playerMap = new Map(players.map(p => [p.id, p]));
-
-// Mock: best ranking, promotion/relegation and profile image
-(function patchMockProfileData() {
-  const p4 = playerMap.get('p-4');
-  if (p4) {
-    p4.bestGlobalPosition = 1;
-    p4.promotionHistory = [{ year: 2025, type: 'promotion', toLeague: 2, fromLeague: 3 }];
-  }
-  const p6 = playerMap.get('p-6');
-  if (p6) {
-    p6.bestGlobalPosition = 2;
-    p6.promotionHistory = [{ year: 2024, type: 'relegation', toLeague: 2, fromLeague: 1 }];
-  }
-  const p0 = playerMap.get('p-0');
-  if (p0) {
-    p0.bestGlobalPosition = 1;
-    p0.profileImage = 'juan.png';
-    p0.titles = 5;
-    p0.runnerUps = 2;
-    p0.stats = { matchesPlayed: 42, wins: 28, losses: 14 };
-    p0.points = 720;
-    p0.promotionHistory = [{ year: 2021, type: 'promotion', toLeague: 1, fromLeague: 2 }];
-  }
-  const p7 = playerMap.get('p-7');
-  if (p7) {
-    p7.promotionHistory = [{ year: 2025, type: 'promotion', toLeague: 2, fromLeague: 3 }];
-  }
-})();
+/** Listados públicos: ocultar perfiles marcados como hidden (el admin los sigue viendo). */
+export function isPlayerProfileListingVisible(p: Player, viewerIsAdmin: boolean): boolean {
+  if (viewerIsAdmin) return true;
+  return p.profileVisibility !== 'hidden';
+}
 
 export function getPlayerById(id: string): Player | undefined {
   if (id.startsWith('l3-')) {
     const p = getLiga3PlayerById(id);
-    return p
-      ? { id: p.id, name: p.name, category: 'Tercera', points: 0, stats: { matchesPlayed: 0, wins: 0, losses: 0 } }
-      : undefined;
+    return p ? { id: p.id, name: p.name, category: 'Tercera' as const } : undefined;
   }
-  return playerMap.get(id);
+  return getClubSnapshot().players.find((p) => p.id === id);
 }
 
 export function getCurrentTournament(): Tournament | undefined {
-  return tournaments.find(t => t.status === 'upcoming' && isTournamentCurrent(t));
+  return getClubSnapshot().tournaments.find((t) => t.status === 'upcoming' && isTournamentCurrent(t));
 }
 
 export function searchPlayersByName(query: string): Player[] {
   const q = query.trim().toLowerCase();
   if (!q) return [];
-  return players.filter(p => p.name.toLowerCase().includes(q)).slice(0, 20);
+  return getClubSnapshot().players.filter((p) => p.name.toLowerCase().includes(q)).slice(0, 20);
 }
 
 export function getPlayersByFilters(category: CategoryKey | 'all'): Player[] {
-  return players
-    .filter(p => category === 'all' || p.category === category)
-    .sort((a, b) => b.points - a.points);
-}
-
-/** Stable mock ranking change from player id (so UI shows variety: up/down/unchanged). */
-function getMockRankingChange(playerId: string): number {
-  const hash = playerId.split('').reduce((a, c) => (a * 31 + c.charCodeAt(0)) | 0, 0);
-  const mod = Math.abs(hash % 5);
-  return mod === 0 ? 0 : mod === 1 ? 1 : mod === 2 ? 2 : mod === 3 ? -1 : -2;
-}
-
-/** Mock points change (positive = gained, negative = lost) for ranking display. */
-function getMockPointsChange(playerId: string): number {
-  const hash = playerId.split('').reduce((a, c) => (a * 31 + c.charCodeAt(0)) | 0, 0);
-  const mod = Math.abs(hash % 7);
-  if (mod === 0) return 0;
-  if (mod <= 2) return 50 + (hash % 3) * 50;
-  if (mod <= 4) return -50 - (Math.abs(hash) % 3) * 50;
-  return 250;
-}
-
-/** Mock tournaments played (e.g. 18–26) for ranking display. */
-function getMockTournamentsPlayed(playerId: string): number {
-  const hash = playerId.split('').reduce((a, c) => (a * 31 + c.charCodeAt(0)) | 0, 0);
-  return 18 + (Math.abs(hash) % 9);
+  return getClubSnapshot().players
+    .filter((p) => category === 'all' || p.category === category)
+    .sort((a, b) => a.name.localeCompare(b.name, 'es'));
 }
 
 /** Age from birthDate (YYYY-MM-DD). */
@@ -602,77 +549,16 @@ export function getPlayerAge(birthDate: string | undefined): number | undefined 
   return age;
 }
 
-export function getRankings(category: CategoryKey | 'all'): RankingRow[] {
-  const filtered = getPlayersByFilters(category);
-  return filtered.map((player, i) => ({
-    position: i + 1,
-    playerId: player.id,
-    player,
-    points: player.points,
-    matchesPlayed: player.stats.matchesPlayed,
-    wins: player.stats.wins,
-    losses: player.stats.losses,
-    rankingChange: getMockRankingChange(player.id),
-    pointsChange: getMockPointsChange(player.id),
-    age: getPlayerAge(player.birthDate),
-    tournamentsPlayed: getMockTournamentsPlayed(player.id),
-    leagueNum: categoryToLeague(player.category),
-  }));
-}
-
-/** Get players in a league (or all) sorted by points. */
-function getPlayersByLeague(league: LeagueNum | 'all'): Player[] {
-  if (league === 'all') {
-    return [...players].sort((a, b) => b.points - a.points);
-  }
-  return players
-    .filter(p => categoryToLeague(p.category) === league)
-    .sort((a, b) => b.points - a.points);
-}
-
-/** Global ranking or per-league ranking. Use for main ranking page with filter [Todos, Liga 1, Liga 2, Liga 3, Liga 4]. */
-export function getRankingsByLeague(league: LeagueNum | 'all'): RankingRow[] {
-  const filtered = getPlayersByLeague(league);
-  return filtered.map((player, i) => ({
-    position: i + 1,
-    playerId: player.id,
-    player,
-    points: player.points,
-    matchesPlayed: player.stats.matchesPlayed,
-    wins: player.stats.wins,
-    losses: player.stats.losses,
-    rankingChange: getMockRankingChange(player.id),
-    pointsChange: getMockPointsChange(player.id),
-    age: getPlayerAge(player.birthDate),
-    tournamentsPlayed: getMockTournamentsPlayed(player.id),
-    leagueNum: categoryToLeague(player.category),
-  }));
-}
-
-/** Tournament seeds (preclasificados) by ranking within the tournament's league. */
-export function getTournamentSeeds(tournamentId: string): { seed: number; playerId: string; player: Player }[] {
-  const t = getTournamentById(tournamentId);
-  if (!t) return [];
-  const league = t.league ?? categoryToLeague(t.category);
-  const leaguePlayers = getPlayersByLeague(league);
-  return leaguePlayers.slice(0, 16).map((player, i) => ({
-    seed: i + 1,
-    playerId: player.id,
-    player,
-  }));
-}
-
-/** Seed (1-based) of a player in a tournament's league, or undefined if not seeded. */
+/** Seed (1-based) en cuadro: solo Liga 3 mock; el resto usa `buildOfficialTournamentSeedMap` (+ ranking vivo si no hay snapshot). */
 export function getSeedInTournament(tournamentId: string, playerId: string): number | undefined {
   if (tournamentId === 't-novak-l3') return getLiga3Preclasificacion(playerId);
-  const seeds = getTournamentSeeds(tournamentId);
-  const entry = seeds.find((s) => s.playerId === playerId);
-  return entry?.seed;
+  return undefined;
 }
 
 export function getTournamentsByStatus(status: TournamentStatus | 'all'): Tournament[] {
+  const tournaments = getClubSnapshot().tournaments;
   if (status === 'all') return [...tournaments];
-  return tournaments.filter(t => t.status === status);
+  return tournaments.filter((t) => t.status === status);
 }
 
 export function getTournamentsByLeague(league: LeagueNum, status?: TournamentStatus): Tournament[] {
@@ -692,64 +578,57 @@ export function isTournamentCurrent(t: Tournament): boolean {
   return today >= start && today <= end;
 }
 
+/** Id sin partidos: cuadro de eliminación solo TBD (cuartos/semis/final). */
+export const EMPTY_BRACKET_TOURNAMENT_ID = '__empty_bracket__';
+
+/**
+ * Torneos anunciados pero aún no en curso: misma estructura de pestañas que el torneo activo,
+ * sin datos de grupos/ranking/bracket real. Liga 3 sigue su flujo propio.
+ */
+export function isTournamentPlaceholderDetail(t: Tournament): boolean {
+  if (t.id === 't-novak-l3') return false;
+  return t.status === 'upcoming' && !isTournamentCurrent(t);
+}
+
+/**
+ * Torneo de la misma liga que la categoría del partido (para enlazar desde “Partidos importantes”).
+ * Prioridad: torneo en curso → próximo upcoming → último finalizado.
+ */
+export function getTournamentIdForImportantMatchCategory(category: string): string | undefined {
+  const league = categoryToLeague(category as CategoryKey);
+  const inLeague = getClubSnapshot().tournaments.filter((t) => (t.league ?? categoryToLeague(t.category)) === league);
+  if (inLeague.length === 0) return undefined;
+  const upcoming = inLeague.filter((t) => t.status === 'upcoming');
+  const current = upcoming.find(isTournamentCurrent);
+  if (current) return current.id;
+  if (upcoming.length > 0) {
+    return [...upcoming].sort((a, b) => a.startDate.localeCompare(b.startDate))[0].id;
+  }
+  const finished = inLeague.filter((t) => t.status === 'finished');
+  if (finished.length > 0) {
+    return [...finished].sort((a, b) => b.endDate.localeCompare(a.endDate))[0].id;
+  }
+  return inLeague[0].id;
+}
+
 export function getTournamentById(id: string): Tournament | undefined {
-  return tournaments.find(t => t.id === id);
+  return getClubSnapshot().tournaments.find((t) => t.id === id);
 }
 
 export function getMatchesByTournament(tournamentId: string): Match[] {
   if (tournamentId === 't-novak-l3') return LIGA3_MATCHES;
-  return matches.filter(m => m.tournamentId === tournamentId);
+  return getClubSnapshot().matches.filter((m) => m.tournamentId === tournamentId);
 }
 
 export function getScheduledMatchesByTournament(tournamentId: string): Match[] {
-  return matches.filter(m => m.tournamentId === tournamentId && !m.winnerId && m.scheduledDate);
+  return getClubSnapshot().matches.filter((m) => m.tournamentId === tournamentId && !m.winnerId && m.scheduledDate);
 }
 
 export function getRecentMatchesForPlayer(playerId: string, limit = 5): Match[] {
-  return matches
-    .filter(m => m.winnerId !== null && (m.playerA === playerId || m.playerB === playerId))
+  return getClubSnapshot().matches
+    .filter((m) => m.winnerId !== null && (m.playerA === playerId || m.playerB === playerId))
     .slice(-limit)
     .reverse();
-}
-
-export function getTournamentHistoryForPlayer(playerId: string): { tournament: Tournament; result: string }[] {
-  return tournaments
-    .filter(t => t.status === 'finished' && (t.winnerId === playerId || t.finalistId === playerId))
-    .map(t => ({
-      tournament: t,
-      result: t.winnerId === playerId ? 'Campeón' : 'Finalista',
-    }))
-    .sort((a, b) => b.tournament.endDate.localeCompare(a.tournament.endDate));
-}
-
-export function getPlayerWithDisplay(id: string): (Player & { position: number; initial: string }) | undefined {
-  const p = getPlayerById(id);
-  if (!p) return undefined;
-  const all = getPlayersByFilters('all');
-  const idx = all.findIndex(x => x.id === p.id);
-  const position = idx >= 0 ? idx + 1 : 0;
-  const initial = p.name.split(' ').map(n => n[0]).join('').slice(0, 2);
-  return { ...p, position, initial };
-}
-
-/** Ranking history for profile: best, average, current, bestAt (date when best was reached). */
-export function getPlayerRankingHistory(playerId: string): { best: number; average: number; current: number; bestAt?: string } {
-  const p = getPlayerById(playerId);
-  const d = getPlayerWithDisplay(playerId);
-  const current = d?.position ?? 0;
-  const best = p?.bestGlobalPosition ?? Math.max(1, current - 2);
-  const average = Math.round((best + current) / 2) || current;
-  const bestAt = getBestRankingDate(playerId);
-  return { best, average, current, bestAt };
-}
-
-/** Mock: date when player reached their best ranking (e.g. "Abril 2024"). */
-function getBestRankingDate(playerId: string): string | undefined {
-  const hash = playerId.split('').reduce((a, c) => (a * 31 + c.charCodeAt(0)) | 0, 0);
-  const months = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
-  const month = months[Math.abs(hash) % 12];
-  const year = 2023 + (Math.abs(hash) % 3);
-  return `${month} ${year}`;
 }
 
 /** Promotion/relegation history for profile. */
@@ -758,14 +637,15 @@ export function getPlayerPromotionHistory(playerId: string): PromotionHistoryEnt
   return p?.promotionHistory ?? [];
 }
 
-export function searchPlayersWithPosition(query: string): (Player & { position: number })[] {
-  const found = searchPlayersByName(query);
-  const all = getPlayersByFilters('all');
-  return found.map(p => ({
-    ...p,
-    position: all.findIndex(x => x.id === p.id) + 1 || 0,
-  }));
-}
+export type PlayerSearchRow = Player & {
+  position: number;
+  displayName: string;
+  /** /players/… o null → usar profileImage en UI */
+  displayAvatar: string | null;
+  /** Puntos de ranking en la liga (solo UI; derivados de partidos). */
+  points?: number;
+  stats?: PlayerStats;
+};
 
 export function formatTournamentDate(t: Tournament): string {
   const s = new Date(t.startDate);
@@ -789,21 +669,13 @@ export function getTournamentRanking(tournamentId: string): RankingRow[] {
         losses: r.PP,
         setsWon: r.setsWon,
         setsLost: r.setsLost,
+        gamesWon: r.gamesWon,
+        gamesLost: r.gamesLost,
       };
     });
   }
-  const t = getTournamentById(tournamentId);
-  if (!t) return [];
-  const categoryPlayers = getPlayersByFilters(t.category);
-  return categoryPlayers.slice(0, 16).map((player, i) => ({
-    position: i + 1,
-    playerId: player.id,
-    player,
-    points: player.points,
-    matchesPlayed: player.stats.matchesPlayed,
-    wins: player.stats.wins,
-    losses: player.stats.losses,
-  }));
+  /** Resto de torneos: ranking desde el motor (`getTournamentTopRankingFromResults` en la UI). */
+  return [];
 }
 
 /** Bracket by rounds: Cuartos de final → Semifinales → Final */
@@ -815,52 +687,23 @@ export function getBracketRounds(tournamentId: string): BracketRounds {
   return { quarterfinals, semifinals, final: finalMatch };
 }
 
-/** Group tables (Grupo A, Grupo B) with PJ, PG, PP, Points */
-export function getGroupTables(tournamentId: string): GroupTable[] {
-  const t = getTournamentById(tournamentId);
-  if (!t) return [];
-  const categoryPlayers = getPlayersByFilters(t.category);
-  const half = Math.ceil(categoryPlayers.length / 2);
-  const groupA: GroupTableRow[] = categoryPlayers.slice(0, half).map((p) => ({
-    playerId: p.id,
-    PJ: p.stats.matchesPlayed,
-    PG: p.stats.wins,
-    PP: p.stats.losses,
-    points: p.points,
-  }));
-  const groupB: GroupTableRow[] = categoryPlayers.slice(half, half * 2).map((p) => ({
-    playerId: p.id,
-    PJ: p.stats.matchesPlayed,
-    PG: p.stats.wins,
-    PP: p.stats.losses,
-    points: p.points,
-  }));
-  return [
-    { name: 'Grupo A', rows: groupA },
-    { name: 'Grupo B', rows: groupB },
-  ];
+/** @deprecated Las tablas de grupo salen del motor (`computeTournamentSnapshot` / UI). */
+export function getGroupTables(_tournamentId: string): GroupTable[] {
+  void _tournamentId;
+  return [];
 }
 
-/** IDs of featured upcoming (not yet started) tournaments for the homepage */
-const UPCOMING_TOURNAMENT_IDS = ['t-nadal', 't-federer', 't-1'] as const;
-
-/** Upcoming tournaments for homepage "Próximos torneos" (excludes current in-progress ones) */
+/**
+ * Próximos torneos para el inicio: catálogo del club (no IDs fijos).
+ * Excluye los que están en curso hoy (`isTournamentCurrent`).
+ */
 export function getUpcomingTournamentsForHome(): Tournament[] {
-  return UPCOMING_TOURNAMENT_IDS
-    .map((id) => getTournamentById(id))
-    .filter((t): t is Tournament => t != null && t.status === 'upcoming' && !isTournamentCurrent(t));
+  return getClubSnapshot()
+    .tournaments.filter((t) => t.status === 'upcoming' && !isTournamentCurrent(t))
+    .sort((a, b) => a.startDate.localeCompare(b.startDate));
 }
 
-/** Simulate set stats for one player (4 matches): returns [setsWon, setsLost]. Plausible totals ~8–14 sets. */
-function simulateSetStatsForPlayer(playerId: string): [number, number] {
-  const hash = (s: string) => s.split('').reduce((a, c) => (a * 31 + c.charCodeAt(0)) | 0, 0);
-  const seed = Math.abs(hash(playerId));
-  const setsWon = 6 + (seed % 6) + Math.floor((seed / 7) % 4);
-  const setsLost = 2 + (seed % 4) + Math.floor((seed / 11) % 3);
-  return [setsWon, setsLost];
-}
-
-/** Group tables with set statistics: Pos, Player, PJ, Sets +, Sets -, Dif. Liga 3: 3 grupos con datos reales del torneo. */
+/** Group tables with set statistics: Pos, Player, PJ, Sets +, Sets -, Dif. Liga 3: datos desde liga3Data; resto sin resultados (0). */
 export function getGroupTablesWithSetStats(tournamentId: string): GroupTableWithSets[] {
   if (tournamentId === 't-novak-l3') {
     return getLiga3GroupStandings().map((g) => ({
@@ -871,6 +714,8 @@ export function getGroupTablesWithSetStats(tournamentId: string): GroupTableWith
         PJ: r.PJ,
         setsWon: r.setsWon,
         setsLost: r.setsLost,
+        gamesWon: r.gamesWon,
+        gamesLost: r.gamesLost,
         setDiff: r.setDiff,
         PG: r.PG,
         PP: r.PP,
@@ -887,18 +732,21 @@ export function getGroupTablesWithSetStats(tournamentId: string): GroupTableWith
   const groupBPlayers = categoryPlayers.slice(half, half * 2);
 
   const buildRows = (list: Player[]): GroupTableRowWithSets[] => {
-    const rows = list.map((p) => {
-      const [setsWon, setsLost] = simulateSetStatsForPlayer(p.id);
-      return {
-        position: 0,
-        playerId: p.id,
-        PJ: 4,
-        setsWon,
-        setsLost,
-        setDiff: setsWon - setsLost,
-      };
+    const rows = list.map((p) => ({
+      position: 0,
+      playerId: p.id,
+      PJ: 0,
+      setsWon: 0,
+      setsLost: 0,
+      gamesWon: 0,
+      gamesLost: 0,
+      setDiff: 0,
+    }));
+    rows.sort((a, b) => {
+      const na = getPlayerById(a.playerId)?.name ?? '';
+      const nb = getPlayerById(b.playerId)?.name ?? '';
+      return na.localeCompare(nb, 'es');
     });
-    rows.sort((a, b) => b.setDiff - a.setDiff);
     rows.forEach((r, i) => {
       r.position = i + 1;
     });
@@ -930,14 +778,20 @@ export interface BracketMatchForLibrary {
 }
 
 /** Build bracket matches in library format: Quarterfinals (1) → Semifinals (2) → Final (3) */
-export function getBracketMatchesForLibrary(tournamentId: string): BracketMatchForLibrary[] {
+export function getBracketMatchesForLibrary(
+  tournamentId: string,
+  seedMap?: ReadonlyMap<string, number> | Map<string, number>,
+): BracketMatchForLibrary[] {
   const rounds = getBracketRounds(tournamentId);
+  const tour = getTournamentById(tournamentId);
+  const mastersKoLayout = tour != null && effectiveTournamentCatalogType(tour) === 'masters1000';
   const list: BracketMatchForLibrary[] = [];
   const idFinal = 'b-f';
   const idS1 = 'b-s1';
   const idS2 = 'b-s2';
 
-  const seed = (playerId: string) => getSeedInTournament(tournamentId, playerId) ?? getPlayerWithDisplay(playerId)?.position;
+  const seed = (playerId: string) =>
+    (seedMap?.has(playerId) ? seedMap.get(playerId) : undefined) ?? getSeedInTournament(tournamentId, playerId);
 
   // Final
   const f = rounds.final[0];
@@ -999,38 +853,40 @@ export function getBracketMatchesForLibrary(tournamentId: string): BracketMatchF
     }
   });
 
-  // Quarterfinals (always 4 matches for full bracket)
-  const qIds = ['b-q1', 'b-q2', 'b-q3', 'b-q4'];
-  const semiIds = [idS1, idS1, idS2, idS2];
-  for (let i = 0; i < 4; i++) {
-    const m = rounds.quarterfinals[i];
-    const id = qIds[i];
-    const nextId = semiIds[i];
-    if (m) {
-      const pa = getPlayerById(m.playerA);
-      const pb = getPlayerById(m.playerB);
-      list.push({
-        id,
-        name: `Cuartos ${i + 1}`,
-        nextMatchId: nextId,
-        tournamentRoundText: '1',
-        startTime: m.scheduledDate ?? '',
-        state: m.winnerId ? 'SCORE_DONE' : 'SCHEDULED',
-        participants: [
-          { id: m.playerA, name: pa?.name ?? 'TBD', resultText: m.score || null, isWinner: m.winnerId === m.playerA, status: m.winnerId ? 'PLAYED' : null, ranking: seed(m.playerA) },
-          { id: m.playerB, name: pb?.name ?? 'TBD', resultText: m.score || null, isWinner: m.winnerId === m.playerB, status: m.winnerId ? 'PLAYED' : null, ranking: seed(m.playerB) },
-        ],
-      });
-    } else {
-      list.push({
-        id,
-        name: `Cuartos ${i + 1}`,
-        nextMatchId: nextId,
-        tournamentRoundText: '1',
-        startTime: '',
-        state: 'SCHEDULED',
-        participants: [{ id: `q${i}-1`, name: 'TBD' }, { id: `q${i}-2`, name: 'TBD' }],
-      });
+  // Quarterfinals (4 cruces). Masters 1000: solo semis + final, sin placeholders de cuartos.
+  if (!mastersKoLayout) {
+    const qIds = ['b-q1', 'b-q2', 'b-q3', 'b-q4'];
+    const semiIds = [idS1, idS1, idS2, idS2];
+    for (let i = 0; i < 4; i++) {
+      const m = rounds.quarterfinals[i];
+      const id = qIds[i];
+      const nextId = semiIds[i];
+      if (m) {
+        const pa = getPlayerById(m.playerA);
+        const pb = getPlayerById(m.playerB);
+        list.push({
+          id,
+          name: `Cuartos ${i + 1}`,
+          nextMatchId: nextId,
+          tournamentRoundText: '1',
+          startTime: m.scheduledDate ?? '',
+          state: m.winnerId ? 'SCORE_DONE' : 'SCHEDULED',
+          participants: [
+            { id: m.playerA, name: pa?.name ?? 'TBD', resultText: m.score || null, isWinner: m.winnerId === m.playerA, status: m.winnerId ? 'PLAYED' : null, ranking: seed(m.playerA) },
+            { id: m.playerB, name: pb?.name ?? 'TBD', resultText: m.score || null, isWinner: m.winnerId === m.playerB, status: m.winnerId ? 'PLAYED' : null, ranking: seed(m.playerB) },
+          ],
+        });
+      } else {
+        list.push({
+          id,
+          name: `Cuartos ${i + 1}`,
+          nextMatchId: nextId,
+          tournamentRoundText: '1',
+          startTime: '',
+          state: 'SCHEDULED',
+          participants: [{ id: `q${i}-1`, name: 'TBD' }, { id: `q${i}-2`, name: 'TBD' }],
+        });
+      }
     }
   }
 
@@ -1046,9 +902,9 @@ export function getGroupStageFixtures(tournamentId: string): GroupStageGroup[] {
 
 /** Upcoming matches with date, time, players for "Próximos partidos". Liga 3: solo la final. */
 export function getUpcomingMatchesForTournament(tournamentId: string): UpcomingMatchDisplay[] {
-  if (tournamentId === 't-novak-l3') return LIGA3_UPCOMING_FINAL;
-  const scheduled = matches.filter(
-    m => m.tournamentId === tournamentId && (m.scheduledDate || m.scheduledTime) && !m.winnerId
+  if (tournamentId === 't-novak-l3') return LIGA3_UPCOMING;
+  const scheduled = getClubSnapshot().matches.filter(
+    (m) => m.tournamentId === tournamentId && (m.scheduledDate || m.scheduledTime) && !m.winnerId,
   );
   return scheduled.map((m, idx) => {
     const pa = getPlayerById(m.playerA);

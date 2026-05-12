@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
-import { MessageCircle, Mail, MapPin } from 'lucide-react';
+import { ExternalLink, MessageCircle, Mail, MapPin } from 'lucide-react';
 import { whatsAppUrl } from '../src/lib/whatsapp';
+import { getClubAddressLinesFromSettings, getGoogleMapsUrlFromSettings, useSiteSettings } from '../src/lib/siteSettings';
 
-const CATEGORIAS = ['Liga 1', 'Liga 2', 'Liga 3', 'Liga 4'] as const;
+const CATEGORIAS = ['Liga 1', 'Liga 2', 'Liga 3', 'Liga 4', 'Liga 5', 'Liga 6'] as const;
 const TIPOS_CONSULTA = [
   'Inscripción a torneo',
   'Consulta general',
@@ -10,17 +11,18 @@ const TIPOS_CONSULTA = [
   'Otro',
 ] as const;
 
-const CONTACT_EMAIL = 'contacto@greektennis.com';
-const SEDES = ['Club Greek Tennis – Sede Central', 'Sede Norte', 'Sede Sur'];
-
 const inputBase =
-  'w-full rounded-xl bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-[#111318] dark:text-white placeholder:text-[#616f89] dark:placeholder:text-gray-500 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all px-4 py-3 text-sm';
+  'w-full rounded-md bg-white dark:bg-gray-800 border border-gray-200/90 dark:border-gray-600 text-[#111318] dark:text-white placeholder:text-[#616f89] dark:placeholder:text-gray-500 focus:ring-2 focus:ring-primary/25 focus:border-primary outline-none transition-all px-4 py-3.5 text-sm';
 
 interface ContactScreenProps {
   setScreen?: (screen: string) => void;
 }
 
 export const ContactScreen: React.FC<ContactScreenProps> = () => {
+  const site = useSiteSettings();
+  const contactEmail = site.club.contactEmail.trim() || 'contacto@greektenis.com';
+  const addressLines = getClubAddressLinesFromSettings(site.club);
+  const mapsUrl = getGoogleMapsUrlFromSettings(site.club);
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
   const [telefono, setTelefono] = useState('');
@@ -46,21 +48,22 @@ export const ContactScreen: React.FC<ContactScreenProps> = () => {
     .join('\n') || 'Hola, quisiera hacer una consulta.';
 
   return (
-    <div className="px-4 md:px-10 lg:px-40 flex justify-center py-8 flex-grow">
-      <div className="w-full max-w-[640px] flex flex-col gap-8">
+    <div className="px-4 md:px-10 lg:px-20 flex justify-center py-10 md:py-12 flex-grow">
+      <div className="w-full max-w-[640px] flex flex-col gap-10">
         {/* Header */}
         <section className="text-center md:text-left">
-          <h1 className="text-4xl font-black leading-tight tracking-[-0.033em] text-[#111318] dark:text-white">
+          <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#616f89] dark:text-gray-500 mb-3">Club</p>
+          <h1 className="text-4xl md:text-5xl font-bold leading-tight tracking-tight text-[#111318] dark:text-white">
             Contacto
           </h1>
-          <p className="mt-2 text-[#616f89] dark:text-gray-400 text-base">
+          <p className="mt-3 text-[#616f89] dark:text-gray-400 text-base leading-relaxed">
             ¿Querés sumarte a un torneo o tenés alguna consulta?
           </p>
         </section>
 
         {/* Form card */}
-        <section className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-300 dark:border-gray-700 shadow-sm overflow-hidden">
-          <div className="p-6 md:p-8">
+        <section className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200/90 dark:border-gray-600 shadow-sport-card dark:shadow-sport-card-dark overflow-hidden">
+          <div className="p-6 md:p-10">
             {submitted ? (
               <div className="py-8 text-center">
                 <p className="text-lg font-semibold text-[#111318] dark:text-white">
@@ -157,7 +160,7 @@ export const ContactScreen: React.FC<ContactScreenProps> = () => {
                 </div>
                 <button
                   type="submit"
-                  className="w-full rounded-xl py-3.5 px-4 bg-primary hover:bg-primary-hover text-white font-bold text-base transition-colors focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-800"
+                  className="w-full rounded-md h-12 px-4 bg-primary hover:bg-primary-hover text-white font-bold text-sm uppercase tracking-wide transition-colors focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-white dark:focus:ring-offset-gray-800"
                 >
                   Enviar consulta
                 </button>
@@ -174,7 +177,7 @@ export const ContactScreen: React.FC<ContactScreenProps> = () => {
 
           {/* WhatsApp — destacado */}
           <a
-            href={whatsAppUrl(whatsappMessage)}
+            href={whatsAppUrl(whatsappMessage, site.club.whatsappDigits)}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-4 w-full rounded-xl border-2 border-green-500 dark:border-green-500 bg-green-500/10 dark:bg-green-500/10 hover:bg-green-500/20 dark:hover:bg-green-500/20 p-4 transition-colors"
@@ -190,7 +193,7 @@ export const ContactScreen: React.FC<ContactScreenProps> = () => {
 
           {/* Email */}
           <a
-            href={`mailto:${CONTACT_EMAIL}`}
+            href={`mailto:${contactEmail}`}
             className="flex items-center gap-4 w-full rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 p-4 transition-colors"
           >
             <div className="flex items-center justify-center size-12 rounded-full bg-gray-200 dark:bg-gray-700 text-[#616f89] dark:text-gray-400 shrink-0">
@@ -198,23 +201,32 @@ export const ContactScreen: React.FC<ContactScreenProps> = () => {
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-bold text-[#111318] dark:text-white">Email</p>
-              <p className="text-sm text-primary break-all">{CONTACT_EMAIL}</p>
+              <p className="text-sm text-primary break-all">{contactEmail}</p>
             </div>
           </a>
 
-          {/* Sedes */}
+          {/* Dirección */}
           <div className="rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 p-4">
             <div className="flex items-start gap-4">
               <div className="flex items-center justify-center size-12 rounded-full bg-gray-200 dark:bg-gray-700 text-[#616f89] dark:text-gray-400 shrink-0">
                 <MapPin className="w-6 h-6" aria-hidden />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-bold text-[#111318] dark:text-white mb-2">Sedes</p>
+                <p className="font-bold text-[#111318] dark:text-white mb-2">Dirección</p>
                 <ul className="space-y-1 text-sm text-[#616f89] dark:text-gray-400">
-                  {SEDES.map((sede) => (
-                    <li key={sede}>{sede}</li>
+                  {addressLines.map((line) => (
+                    <li key={line}>{line}</li>
                   ))}
                 </ul>
+                <a
+                  href={mapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:text-primary-hover hover:underline"
+                >
+                  <ExternalLink className="size-4 shrink-0 opacity-90" aria-hidden />
+                  Abrir ubicación en Google Maps
+                </a>
               </div>
             </div>
           </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-const STORAGE_KEY = 'greek-tennis-cookie-consent';
+const STORAGE_KEY = 'greek-tenis-cookie-consent';
 
 export const CookieBanner: React.FC = () => {
   const [visible, setVisible] = useState(false);
@@ -44,14 +44,14 @@ export const CookieBanner: React.FC = () => {
           <button
             type="button"
             onClick={handleConfigure}
-            className="px-4 py-2 rounded-xl text-sm font-semibold text-[#616f89] dark:text-gray-400 hover:text-[#111318] dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            className="px-4 py-2 rounded-md text-sm font-semibold text-[#616f89] dark:text-gray-400 hover:text-[#111318] dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
           >
             Configurar
           </button>
           <button
             type="button"
             onClick={handleAccept}
-            className="px-5 py-2 rounded-xl text-sm font-bold bg-primary hover:bg-primary-hover text-white transition-colors"
+            className="px-5 py-2.5 rounded-md text-sm font-bold uppercase tracking-wide bg-primary hover:bg-primary-hover text-white transition-colors min-h-[2.5rem]"
           >
             Aceptar
           </button>

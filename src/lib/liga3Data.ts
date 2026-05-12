@@ -1,7 +1,7 @@
 /**
- * Datos completos del torneo Novak Djokovic – Liga 3.
- * Torneo simulado hasta la final (solo falta jugar la final).
- * No modifica el ranking global de jugadores.
+ * Torneo Novak Djokovic – Liga 3.
+ * Estado inicial: fixture y planteles definidos; sin resultados (grupos ni eliminación).
+ * Para cargar partidos: añadir filas a `LIGA3_GROUP_RESULTS` y partidos en `LIGA3_BRACKET_MATCHES`.
  */
 
 export const LIGA3_TOURNAMENT_ID = 't-novak-l3';
@@ -70,42 +70,15 @@ export interface Liga3GroupMatchResult {
   time: string;
 }
 
-/** Partidos de grupos con resultado (30 partidos: 3 grupos × 5 fechas × 2 partidos) */
-export const LIGA3_GROUP_RESULTS: Liga3GroupMatchResult[] = [
-  // Grupo A
-  { groupName: 'Grupo A', fecha: 1, playerA: 'Pusterla P.', playerB: 'Santi M.', score: '6-3, 6-4', winner: 'Pusterla P.', date: 'Dom 2 Mar', time: '10:00' },
-  { groupName: 'Grupo A', fecha: 1, playerA: 'Rusel S.', playerB: 'Bocchicchio F.', score: '6-2, 7-5', winner: 'Rusel S.', date: 'Dom 2 Mar', time: '11:30' },
-  { groupName: 'Grupo A', fecha: 2, playerA: 'Bocchicchio F.', playerB: 'Pusterla P.', score: '4-6, 6-3, 6-4', winner: 'Bocchicchio F.', date: 'Dom 9 Mar', time: '10:00' },
-  { groupName: 'Grupo A', fecha: 2, playerA: 'Rusel S.', playerB: 'Repecka A.', score: '6-4, 6-2', winner: 'Repecka A.', date: 'Dom 9 Mar', time: '11:30' },
-  { groupName: 'Grupo A', fecha: 3, playerA: 'Pusterla P.', playerB: 'Rusel S.', score: '7-5, 6-3', winner: 'Pusterla P.', date: 'Dom 16 Mar', time: '10:00' },
-  { groupName: 'Grupo A', fecha: 3, playerA: 'Repecka A.', playerB: 'Santi M.', score: '6-2, 6-1', winner: 'Repecka A.', date: 'Dom 16 Mar', time: '11:30' },
-  { groupName: 'Grupo A', fecha: 4, playerA: 'Repecka A.', playerB: 'Pusterla P.', score: '6-3, 6-4', winner: 'Repecka A.', date: 'Sáb 22 Mar', time: '16:00' },
-  { groupName: 'Grupo A', fecha: 4, playerA: 'Santi M.', playerB: 'Bocchicchio F.', score: '6-4, 3-6, 6-2', winner: 'Santi M.', date: 'Sáb 22 Mar', time: '17:30' },
-  { groupName: 'Grupo A', fecha: 5, playerA: 'Santi M.', playerB: 'Rusel S.', score: '6-2, 7-6(4)', winner: 'Santi M.', date: 'Dom 23 Mar', time: '10:00' },
-  { groupName: 'Grupo A', fecha: 5, playerA: 'Bocchicchio F.', playerB: 'Repecka A.', score: '2-6, 6-4, 3-6', winner: 'Repecka A.', date: 'Dom 23 Mar', time: '11:30' },
-  // Grupo B
-  { groupName: 'Grupo B', fecha: 1, playerA: 'Marin G.', playerB: 'Fernandez B.', score: '6-3, 6-2', winner: 'Marin G.', date: 'Dom 2 Mar', time: '14:00' },
-  { groupName: 'Grupo B', fecha: 1, playerA: 'Casadio M.', playerB: 'Volpe S.', score: '7-5, 6-4', winner: 'Casadio M.', date: 'Dom 2 Mar', time: '15:30' },
-  { groupName: 'Grupo B', fecha: 2, playerA: 'Volpe S.', playerB: 'Marin G.', score: '4-6, 6-3, 4-6', winner: 'Marin G.', date: 'Dom 9 Mar', time: '14:00' },
-  { groupName: 'Grupo B', fecha: 2, playerA: 'Casadio M.', playerB: 'Bianco D.', score: '6-2, 6-1', winner: 'Casadio M.', date: 'Dom 9 Mar', time: '15:30' },
-  { groupName: 'Grupo B', fecha: 3, playerA: 'Marin G.', playerB: 'Casadio M.', score: '6-4, 6-3', winner: 'Marin G.', date: 'Dom 16 Mar', time: '14:00' },
-  { groupName: 'Grupo B', fecha: 3, playerA: 'Bianco D.', playerB: 'Fernandez B.', score: '6-3, 5-7, 6-4', winner: 'Bianco D.', date: 'Dom 16 Mar', time: '15:30' },
-  { groupName: 'Grupo B', fecha: 4, playerA: 'Bianco D.', playerB: 'Marin G.', score: '2-6, 4-6', winner: 'Marin G.', date: 'Sáb 22 Mar', time: '10:00' },
-  { groupName: 'Grupo B', fecha: 4, playerA: 'Fernandez B.', playerB: 'Volpe S.', score: '6-4, 6-2', winner: 'Fernandez B.', date: 'Sáb 22 Mar', time: '11:30' },
-  { groupName: 'Grupo B', fecha: 5, playerA: 'Fernandez B.', playerB: 'Casadio M.', score: '3-6, 6-4, 2-6', winner: 'Casadio M.', date: 'Dom 23 Mar', time: '14:00' },
-  { groupName: 'Grupo B', fecha: 5, playerA: 'Volpe S.', playerB: 'Bianco D.', score: '6-3, 6-4', winner: 'Volpe S.', date: 'Dom 23 Mar', time: '15:30' },
-  // Grupo C
-  { groupName: 'Grupo C', fecha: 1, playerA: 'Vito C.', playerB: 'Santi G.', score: '6-2, 6-3', winner: 'Vito C.', date: 'Dom 2 Mar', time: '18:00' },
-  { groupName: 'Grupo C', fecha: 1, playerA: 'Del Valle G.', playerB: 'Ferreres G.', score: '7-6(2), 6-4', winner: 'Del Valle G.', date: 'Dom 2 Mar', time: '19:30' },
-  { groupName: 'Grupo C', fecha: 2, playerA: 'Ferreres G.', playerB: 'Vito C.', score: '4-6, 6-3, 2-6', winner: 'Vito C.', date: 'Dom 9 Mar', time: '18:00' },
-  { groupName: 'Grupo C', fecha: 2, playerA: 'Del Valle G.', playerB: 'Komesu F.', score: '6-1, 6-2', winner: 'Del Valle G.', date: 'Dom 9 Mar', time: '19:30' },
-  { groupName: 'Grupo C', fecha: 3, playerA: 'Vito C.', playerB: 'Del Valle G.', score: '6-4, 3-6, 6-3', winner: 'Vito C.', date: 'Dom 16 Mar', time: '18:00' },
-  { groupName: 'Grupo C', fecha: 3, playerA: 'Komesu F.', playerB: 'Santi G.', score: '6-2, 7-5', winner: 'Komesu F.', date: 'Dom 16 Mar', time: '19:30' },
-  { groupName: 'Grupo C', fecha: 4, playerA: 'Komesu F.', playerB: 'Vito C.', score: '3-6, 4-6', winner: 'Vito C.', date: 'Sáb 22 Mar', time: '14:00' },
-  { groupName: 'Grupo C', fecha: 4, playerA: 'Santi G.', playerB: 'Ferreres G.', score: '6-3, 6-4', winner: 'Santi G.', date: 'Sáb 22 Mar', time: '15:30' },
-  { groupName: 'Grupo C', fecha: 5, playerA: 'Santi G.', playerB: 'Del Valle G.', score: '2-6, 5-7', winner: 'Del Valle G.', date: 'Dom 23 Mar', time: '18:00' },
-  { groupName: 'Grupo C', fecha: 5, playerA: 'Ferreres G.', playerB: 'Komesu F.', score: '6-4, 6-3', winner: 'Ferreres G.', date: 'Dom 23 Mar', time: '19:30' },
-];
+/** Partidos de grupos con resultado. Vacío hasta que cargues fechas jugadas. */
+export const LIGA3_GROUP_RESULTS: Liga3GroupMatchResult[] = [];
+
+/** Plantilla por grupo (mismo orden que `LIGA3_GROUP_FIXTURES` en mockData) para tablas 0-0 sin partidos. */
+const LIGA3_GROUP_ROSTERS: Record<string, string[]> = {
+  'Grupo A': ['Pusterla P.', 'Santi M.', 'Rusel S.', 'Bocchicchio F.', 'Repecka A.'],
+  'Grupo B': ['Marin G.', 'Fernandez B.', 'Casadio M.', 'Volpe S.', 'Bianco D.'],
+  'Grupo C': ['Vito C.', 'Santi G.', 'Del Valle G.', 'Ferreres G.', 'Komesu F.'],
+};
 
 /** Partidos de fase de grupos con resultado (para "Partidos por fase de grupos") */
 export function getLiga3GroupStageResults(): Liga3GroupMatchResult[] {
@@ -115,15 +88,20 @@ export function getLiga3GroupStageResults(): Liga3GroupMatchResult[] {
 const POINTS_WIN = 3;
 const POINTS_LOSS = 0;
 
-function parseSets(score: string): { setsA: number; setsB: number } {
+function parseScoreTotals(score: string): { setsA: number; setsB: number; gamesA: number; gamesB: number } {
   const parts = score.split(',').map((s) => s.trim().split('-').map(Number));
   let setsA = 0;
   let setsB = 0;
+  let gamesA = 0;
+  let gamesB = 0;
   for (const [a, b] of parts) {
+    if (!Number.isFinite(a) || !Number.isFinite(b)) continue;
+    gamesA += a;
+    gamesB += b;
     if (a > b) setsA++;
     else if (b > a) setsB++;
   }
-  return { setsA, setsB };
+  return { setsA, setsB, gamesA, gamesB };
 }
 
 /** Standings por jugador (solo fase de grupos) */
@@ -135,19 +113,43 @@ export interface Liga3StandingRow {
   PP: number;
   setsWon: number;
   setsLost: number;
+  gamesWon: number;
+  gamesLost: number;
   setDiff: number;
   points: number;
   /** Cambio de posición respecto a la fecha anterior: +2 = subió 2, -1 = bajó 1 */
   positionChange?: number;
 }
 
+function emptyStandingsForGroup(groupName: string): Liga3StandingRow[] {
+  const names = LIGA3_GROUP_ROSTERS[groupName] ?? [];
+  return names
+    .map((name) => ({
+      playerId: getLiga3Id(name),
+      playerName: name,
+      PJ: 0,
+      PG: 0,
+      PP: 0,
+      setsWon: 0,
+      setsLost: 0,
+      gamesWon: 0,
+      gamesLost: 0,
+      setDiff: 0,
+      points: 0,
+    }))
+    .sort((a, b) => (LIGA3_PRECLASIFICACION[a.playerId] ?? 999) - (LIGA3_PRECLASIFICACION[b.playerId] ?? 999));
+}
+
 function buildGroupStandings(groupName: string, upToFecha?: number): Liga3StandingRow[] {
   const matches = LIGA3_GROUP_RESULTS.filter(
     (m) => m.groupName === groupName && (upToFecha == null || m.fecha <= upToFecha)
   );
+  if (matches.length === 0) {
+    return emptyStandingsForGroup(groupName);
+  }
   const map = new Map<string, Liga3StandingRow>();
   for (const m of matches) {
-    const { setsA, setsB } = parseSets(m.score);
+    const { setsA, setsB, gamesA, gamesB } = parseScoreTotals(m.score);
     for (const name of [m.playerA, m.playerB]) {
       if (!map.has(name)) {
         map.set(name, {
@@ -158,6 +160,8 @@ function buildGroupStandings(groupName: string, upToFecha?: number): Liga3Standi
           PP: 0,
           setsWon: 0,
           setsLost: 0,
+          gamesWon: 0,
+          gamesLost: 0,
           setDiff: 0,
           points: 0,
         });
@@ -169,8 +173,12 @@ function buildGroupStandings(groupName: string, upToFecha?: number): Liga3Standi
     rowB.PJ++;
     rowA.setsWon += setsA;
     rowA.setsLost += setsB;
+    rowA.gamesWon += gamesA;
+    rowA.gamesLost += gamesB;
     rowB.setsWon += setsB;
     rowB.setsLost += setsA;
+    rowB.gamesWon += gamesB;
+    rowB.gamesLost += gamesA;
     if (m.winner === m.playerA) {
       rowA.PG++;
       rowA.points += POINTS_WIN;
@@ -217,10 +225,12 @@ export interface Liga3TournamentRankingRow {
   PP: number;
   setsWon: number;
   setsLost: number;
+  gamesWon: number;
+  gamesLost: number;
   points: number;
 }
 
-/** Partidos del cuadro de eliminación (IDs internos l3-). Final sin winner. Orden: Q1,Q4,Q2,Q3 para que S1=Q1+Q4, S2=Q2+Q3. */
+/** Partidos del cuadro de eliminación (IDs l3-). Vacío hasta definir cuadro con resultados. */
 export const LIGA3_BRACKET_MATCHES: Array<{
   id: string;
   playerA: string;
@@ -230,34 +240,22 @@ export const LIGA3_BRACKET_MATCHES: Array<{
   round: string;
   scheduledDate?: string;
   scheduledTime?: string;
-}> = [
-  { id: 'l3-q1', playerA: 'l3-repecka', playerB: 'l3-volpe', score: '6-4, 6-3', winnerId: 'l3-repecka', round: 'Cuartos de final', scheduledDate: '2025-03-29', scheduledTime: '10:00' },
-  { id: 'l3-q4', playerA: 'l3-delvalle', playerB: 'l3-rusel', score: '6-2, 7-6(3)', winnerId: 'l3-delvalle', round: 'Cuartos de final', scheduledDate: '2025-03-29', scheduledTime: '15:30' },
-  { id: 'l3-q2', playerA: 'l3-marin', playerB: 'l3-santi-m', score: '7-5, 6-2', winnerId: 'l3-marin', round: 'Cuartos de final', scheduledDate: '2025-03-29', scheduledTime: '11:30' },
-  { id: 'l3-q3', playerA: 'l3-vito', playerB: 'l3-bianco', score: '6-3, 6-4', winnerId: 'l3-vito', round: 'Cuartos de final', scheduledDate: '2025-03-29', scheduledTime: '14:00' },
-  { id: 'l3-s1', playerA: 'l3-repecka', playerB: 'l3-delvalle', score: '6-3, 4-6, 6-2', winnerId: 'l3-repecka', round: 'Semifinales', scheduledDate: '2025-03-30', scheduledTime: '10:00' },
-  { id: 'l3-s2', playerA: 'l3-marin', playerB: 'l3-vito', score: '7-6(4), 6-4', winnerId: 'l3-marin', round: 'Semifinales', scheduledDate: '2025-03-30', scheduledTime: '12:00' },
-  { id: 'l3-f', playerA: 'l3-repecka', playerB: 'l3-marin', score: '', winnerId: null, round: 'Final', scheduledDate: '2025-04-06', scheduledTime: '17:00' },
-];
-
-/** Próximos partidos: solo la final */
-export const LIGA3_UPCOMING_FINAL = [
-  { id: 'l3-final', date: 'Domingo 6/4', time: '17:00', playerA: 'Repecka A.', playerB: 'Marin G.', group: 'Final', ballsByPlayerA: true },
-];
+}> = [];
 
 /** Estado del torneo */
-export const LIGA3_STATUS = 'FASE FINAL – A LA ESPERA DE LA FINAL';
+export const LIGA3_STATUS = 'Fase de grupos – sin resultados (calendario y fixture listos)';
 
-/** Final pendiente */
-export function getLiga3FinalMatch(): { playerA: string; playerB: string; date: string; time: string } {
-  const f = LIGA3_BRACKET_MATCHES.find((m) => m.round === 'Final')!;
+/** Final del cuadro (si existe en `LIGA3_BRACKET_MATCHES`). */
+export function getLiga3FinalMatch(): { playerA: string; playerB: string; date: string; time: string } | null {
+  const f = LIGA3_BRACKET_MATCHES.find((m) => m.round === 'Final');
+  if (!f) return null;
   const pa = getLiga3PlayerById(f.playerA);
   const pb = getLiga3PlayerById(f.playerB);
   return {
     playerA: pa?.name ?? f.playerA,
     playerB: pb?.name ?? f.playerB,
-    date: 'Domingo 6 de abril',
-    time: '17:00',
+    date: f.scheduledDate ?? '—',
+    time: f.scheduledTime ?? '—',
   };
 }
 
@@ -283,6 +281,9 @@ export interface Liga3CalendarEntry {
 }
 
 export function getLiga3Calendar(): Liga3CalendarEntry[] {
+  if (LIGA3_GROUP_RESULTS.length === 0 && LIGA3_BRACKET_MATCHES.length === 0) {
+    return [];
+  }
   const entries: Liga3CalendarEntry[] = LIGA3_GROUP_RESULTS.map((m) => ({
     date: m.date,
     time: m.time,
@@ -329,7 +330,19 @@ export function getLiga3TournamentRanking(): Liga3TournamentRankingRow[] {
       for (const id of [m.playerA, m.playerB]) {
         if (!byId.has(id)) {
           const p = getLiga3PlayerById(id);
-          byId.set(id, { playerId: id, playerName: p?.name ?? id, PJ: 0, PG: 0, PP: 0, setsWon: 0, setsLost: 0, setDiff: 0, points: 0 });
+          byId.set(id, {
+            playerId: id,
+            playerName: p?.name ?? id,
+            PJ: 0,
+            PG: 0,
+            PP: 0,
+            setsWon: 0,
+            setsLost: 0,
+            gamesWon: 0,
+            gamesLost: 0,
+            setDiff: 0,
+            points: 0,
+          });
         }
         const row = byId.get(id)!;
         row.PJ++;
@@ -363,10 +376,17 @@ export function getLiga3TournamentRanking(): Liga3TournamentRankingRow[] {
     PP: r.PP,
     setsWon: r.setsWon,
     setsLost: r.setsLost,
+    gamesWon: r.gamesWon,
+    gamesLost: r.gamesLost,
     points: phasePoints.get(r.playerId) ?? 0,
   }));
 
-  list.sort((a, b) => b.points - a.points || (b.setsWon - b.setsLost) - (a.setsWon - a.setsLost));
+  list.sort(
+    (a, b) =>
+      b.points - a.points ||
+      (b.setsWon - b.setsLost) - (a.setsWon - a.setsLost) ||
+      a.playerName.localeCompare(b.playerName, 'es')
+  );
   list.forEach((r, i) => {
     r.position = i + 1;
   });

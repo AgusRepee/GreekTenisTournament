@@ -1,0 +1,130 @@
+{
+    "torneo": "Novak Djokovic",
+    "liga": 1,
+    "grupos": {
+      "A": [
+        "Pfening G.",
+        "Alvarez I.",
+        "Tacain R.",
+        "Arico S.",
+        "Guidobono A."
+      ],
+      "B": [
+        "Garassi A.",
+        "Rothkel M.",
+        "Araujo J.",
+        "Zanella H.",
+        "Duarte D."
+      ],
+      "C": [
+        "Gaudina A.",
+        "Cordoba D.",
+        "Filosa M.",
+        "Mena C.",
+        "Novizki P."
+      ]
+    },
+    "fechas": [
+      {
+        "numero": 1,
+        "grupos": {
+          "A": [
+            "Pfening G. (P) vs Alvarez I.",
+            "Tacain R. (P) vs Arico S.",
+            "Libre: Guidobono A."
+          ],
+          "B": [
+            "Garassi A. (P) vs Rothkel M.",
+            "Araujo J. (P) vs Zanella H.",
+            "Libre: Duarte D."
+          ],
+          "C": [
+            "Gaudina A. (P) vs Cordoba D.",
+            "Filosa M. (P) vs Mena C.",
+            "Libre: Novizki P."
+          ]
+        }
+      },
+      {
+        "numero": 2,
+        "grupos": {
+          "A": [
+            "Arico S. (P) vs Pfening G.",
+            "Tacain R. (P) vs Guidobono A.",
+            "Libre: Alvarez I."
+          ],
+          "B": [
+            "Zanella H. (P) vs Garassi A.",
+            "Araujo J. (P) vs Duarte D.",
+            "Libre: Rothkel M."
+          ],
+          "C": [
+            "Mena C. (P) vs Gaudina A.",
+            "Filosa M. (P) vs Novizki P.",
+            "Libre: Cordoba D."
+          ]
+        }
+      },
+      {
+        "numero": 3,
+        "grupos": {
+          "A": [
+            "Pfening G. (P) vs Tacain R.",
+            "Guidobono A. (P) vs Alvarez I.",
+            "Libre: Arico S."
+          ],
+          "B": [
+            "Garassi A. (P) vs Araujo J.",
+            "Duarte D. (P) vs Rothkel M.",
+            "Libre: Zanella H."
+          ],
+          "C": [
+            "Gaudina A. (P) vs Filosa M.",
+            "Novizki P. (P) vs Cordoba D.",
+            "Libre: Mena C."
+          ]
+        }
+      },
+      {
+        "numero": 4,
+        "grupos": {
+          "A": [
+            "Guidobono A. (P) vs Pfening G.",
+            "Alvarez I. (P) vs Arico S.",
+            "Libre: Tacain R."
+          ],
+          "B": [
+            "Duarte D. (P) vs Garassi A.",
+            "Rothkel M. (P) vs Zanella H.",
+            "Libre: Araujo J."
+          ],
+          "C": [
+            "Novizki P. (P) vs Gaudina A.",
+            "Cordoba D. (P) vs Mena C.",
+            "Libre: Filosa M."
+          ]
+        }
+      },
+      {
+        "numero": 5,
+        "grupos": {
+          "A": [
+            "Alvarez I. (P) vs Tacain R.",
+            "Arico S. (P) vs Guidobono A.",
+            "Libre: Pfening G."
+          ],
+          "B": [
+            "Rothkel M. (P) vs Araujo J.",
+            "Zanella H. (P) vs Duarte D.",
+            "Libre: Garassi A."
+          ],
+          "C": [
+            "Cordoba D. (P) vs Filosa M.",
+            "Mena C. (P) vs Novizki P.",
+            "Libre: Gaudina A."
+          ]
+        }
+      }
+    ],
+    "nota": "(P): Jugador asignado para llevar pelotas en ese partido."
+  }
