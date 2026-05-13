@@ -1,0 +1,7 @@
+node_modules/
+dist/
+server/
+.cursor/
+.env
+.env.*
+!.env.example

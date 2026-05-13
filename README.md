@@ -1,39 +1,60 @@
-# API Greek Tennis (MySQL + Prisma + Express)
+# Greek Tennis API — Hostinger Deploy
 
-## Requisitos
+Backend Node/Express separado para deploy en Hostinger. En esta rama el contenido de `server/` vive directamente en la raíz del repositorio.
 
-- Node.js 20+
-- MySQL 8+ (local o Hostinger)
+## Hostinger settings
 
-## Puesta en marcha
+Framework preset: Express  
+Branch: hostinger-api  
+Root directory: ./  
+Node version: 22.x  
+Entry file: dist/index.js
+
+## Build command
 
 ```bash
-cd server
-npm install
-cp .env.example .env
-# Editar .env: DATABASE_URL o piezas DB_*
-npx prisma generate
-# Si el repo ya incluye migraciones en prisma/migrations/:
-npx prisma migrate deploy
-# Desarrollo con shadow DB (alternativa): npx prisma migrate dev
-npm run dev
+npm install && npx prisma generate && npx prisma migrate deploy && npm run build
 ```
 
-- Salud: `GET http://localhost:3001/health`
-- Público: `GET /api/public/tournaments`, etc.
-- Admin (JWT): rutas bajo `/api/admin` (ver `src/routes/adminApiRouter.ts`); login `POST /api/admin/auth/login`.
+## Start command
 
-## Producción (Hostinger)
+```bash
+npm start
+```
 
-1. Importar repo desde GitHub: `https://github.com/AgusRepee/GreekTenisTournament.git`.
-2. Rama deploy: `hostinger-staging`.
-3. Root directory en Hostinger: `server`.
-4. Variables de entorno: `DATABASE_URL` o `DB_*`, `JWT_SECRET`, `ADMIN_PASSWORD`, `CORS_ORIGIN`, etc. (ver `.env.hostinger.example`).
-5. Build command: `npm install && npx prisma generate && npx prisma migrate deploy && npm run build`.
-6. Start command: `npm start` (`node dist/index.js`).
-7. Guía detallada: `docs/hostinger-backend-mysql.md` y `docs/hostinger-deploy-checklist.md`.
+## Environment variables
 
-## Documentación adicional
+```env
+DATABASE_URL=mysql://u592173310_TorneosGreek:MYSQL_PASSWORD@localhost:3306/u592173310_TorneosGreek
+PORT=3001
+JWT_SECRET=COMPLETAR
+ADMIN_PASSWORD=COMPLETAR
+CORS_ORIGIN=https://greektennis.com
+```
 
-- `docs/hostinger-backend-mysql.md` — despliegue Hostinger + variables + Vite.
-- `docs/BACKEND_MIGRATION.md` (si existe) — evolución incremental.
+No subir `.env` reales al repositorio. Si la contraseña MySQL tiene caracteres especiales, encodearla para URL:
+
+```txt
+@ -> %40
+# -> %23
+: -> %3A
+/ -> %2F
+% -> %25
+```
+
+## Local setup
+
+```bash
+npm install
+npx prisma generate
+npm run build
+npm test
+```
+
+No ejecutar `npx prisma migrate deploy` localmente sin `DATABASE_URL` real. Las migraciones se ejecutan en Hostinger con las variables reales.
+
+## Test endpoints
+
+GET /api/public/home  
+GET /api/public/rankings  
+POST /api/admin/auth/login
